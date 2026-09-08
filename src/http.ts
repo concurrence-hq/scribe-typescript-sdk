@@ -1,4 +1,5 @@
 import { ConfigurationError, NetworkError, TimeoutError, createApiError } from './errors'
+import { trimTrailingSlashes } from './url'
 
 /** A `fetch`-compatible function. Injectable for testing / custom transports. */
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>
@@ -157,7 +158,7 @@ export class HttpClient {
     if (typeof resolvedFetch !== 'function') {
       throw new ConfigurationError('No fetch implementation available; pass config.fetch', 'fetch')
     }
-    this.baseUrl = config.baseUrl.replace(/\/+$/, '')
+    this.baseUrl = trimTrailingSlashes(config.baseUrl)
     this.token = config.token
     // Bind to globalThis: native `fetch` must run with `this === globalThis`.
     // Called as `this.fetchImpl(...)` an unbound reference would run with
