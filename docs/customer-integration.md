@@ -193,7 +193,11 @@ audience: an attach ticket is rejected at every REST endpoint, and a REST
 provider JWT is rejected at the WebSocket. The two credentials are not
 interchangeable.
 
-### 2.4 Install the SDK
+### 2.4 Visit type and note template
+
+Session creation requires a canonical `visit_type` that resolves to a supported note template for the workspace. Confirm that configuration during provisioning, even though the generated request schema makes the field optional. General session creation is in-person; Zoom sessions use the separate Zoom-create workflow. PATCH cannot change session mode.
+
+### 2.5 Install the SDK
 
 Both the backend and the browser import from the same ESM-only package:
 
@@ -350,10 +354,9 @@ the same session, sends `resume_from{acked_offset_bytes}`, and resends only the
 unacked ring-buffer audio.
 
 > **Audio capture.** `ScribeStreamClient` has **no** mic code — you feed it PCM16
-> via `sendAudio(ArrayBuffer | Uint8Array)`. A higher-level `ScribeRecorder` that
-> owns `getUserMedia` → PCM16 capture and drives the client is **not yet shipped**
-> (SDK phase 16, in progress) — see §7. Until it lands, capture PCM16 yourself
-> (16 kHz mono, little-endian `Int16`) and call `sendAudio`.
+> via `sendAudio(ArrayBuffer | Uint8Array)`. The exported `ScribeRecorder` owns
+> `getUserMedia` → PCM16 capture and drives the client; see §7. Use the lower-level
+> client when you supply your own 16 kHz mono, little-endian PCM16 stream.
 
 ### The WebSocket is browser-direct
 
@@ -415,7 +418,10 @@ const server = new ScribeServerClient({
 // YOUR appointment identifier; it maps to Scribe's `external_id` (idempotent per
 // provider — re-creating for the same appointment returns the same session).
 export async function createScribeSession(clinicianEmail: string, appointmentId: string) {
-  const session = await server.createSession(clinicianEmail, { external_id: appointmentId })
+  const session = await server.createSession(clinicianEmail, {
+    external_id: appointmentId,
+    visit_type: 'medical', // use the workspace's configured canonical visit type
+  })
   return { sessionId: session.id } // associate with your appointment as you see fit
 }
 
@@ -442,13 +448,7 @@ separately too (they back `allocateProvider` / `ticketProvider`). Every route
 resolves the clinician from **your** authenticated session — never take the
 clinician email from the browser.
 
-> **No app-level session-ownership check is needed here.** `allocate` and
-> `token_exchange` are **provider-ownership-bound**: the token is minted _acting
-> as the authenticated clinician_, and Amigo rejects allocate / ticket mint for
-> any `session_id` that clinician's provider entity doesn't own (a foreign
-> session → `invalid_target` at mint, `4004` at attach). So a browser passing an
-> arbitrary `sessionId` can at most reach **that same clinician's own** sessions,
-> never another clinician's — the platform is the ownership boundary.
+> **Keep your application authorization checks.** Amigo binds allocation and ticket minting to the acting provider. Your backend must still authenticate the caller, derive the clinician identity from that session, and enforce any appointment, tenant, or workflow restrictions in your application before accepting a session identifier.
 
 > **Not using the SDK on the backend?** The raw form-encoded `/token` mints and
 > REST calls in §3 are all you need — `ScribeServerClient` is a thin,
@@ -482,6 +482,7 @@ async function record(sessionId: string) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId: sid }),
       })
+      if (!r.ok) throw new Error(`Connection request failed: ${r.status}`)
       const { host, ticket } = await r.json() // kept in memory only — never localStorage
       return { host, ticket }
     },
@@ -512,10 +513,7 @@ or — for a one-shot connection where you already hold the values — static `h
 `ticket` (note: static values are reused on reconnect, so they fail once the
 ticket expires; use `connectionProvider` for a reconnect-safe stream).
 
-Wiring mic capture into `sendAudio` (the `getUserMedia` → PCM16 pipeline) is
-what the not-yet-shipped `ScribeRecorder` (§7) will encapsulate. Until then,
-implement the capture pipeline yourself and pipe each PCM16 chunk to
-`client.sendAudio` — starting on the `streaming` state as shown above.
+Use the exported `ScribeRecorder` (§7) to manage the microphone and stream together. The lower-level example above is for applications that already own a PCM16 capture pipeline; start feeding audio only when the client reports `streaming`.
 
 ---
 
@@ -536,13 +534,7 @@ ticket ephemeral in the browser.
 - **Browser calls Amigo directly only for the WebSocket.** Proxy all
   create/allocate/read (CRUD) calls through your backend (§1); the browser must
   not call the Amigo REST API directly or hold a provider credential.
-- **Per-clinician ownership.** Always derive the acting clinician from **your**
-  authenticated app session — never from the browser. You don't need to
-  re-validate a browser-supplied `sessionId` against the clinician: `allocate`
-  and `token_exchange` are provider-ownership-bound, so a clinician can only ever
-  allocate / mint a ticket for their own sessions (a foreign `sessionId` →
-  `invalid_target` / `4004`). Add an app-level check only if your access model is
-  finer-grained than "any clinician in the workspace."
+- **Per-clinician ownership.** Derive the clinician from your authenticated app session and enforce application-level access to the requested appointment or session. Amigo's provider ownership checks complement your application's tenant and workflow authorization.
 - **Ticket handling in the browser.** Keep the ticket **in memory only** — never
   `localStorage`/`sessionStorage`. Set `Cache-Control: no-store` on your ticket
   and allocate responses. The SDK re-mints per (re)connect, so there's no need to
@@ -565,33 +557,34 @@ bounded to the one session by the audience + scope + `session_id` + owner checks
 
 ---
 
-## 7. `ScribeRecorder` (SDK phase 16 — not yet shipped)
+## 7. `ScribeRecorder`
 
-A browser **`ScribeRecorder`** that owns the mic (`getUserMedia` → PCM16
-capture) and drives `ScribeStreamClient` for you — exposing `start / pause /
-resume / end` plus the same events — is planned but **not yet available** in the
-SDK (phase 16; no release contains it at the time of writing). Its intended
-shape (from the phase-16 design, subject to change until it ships):
+`ScribeRecorder` is exported by the package and manages microphone capture and the streaming client together. Start it from a user action in a secure browser context after your application has obtained any required recording consent. Handle microphone permission failure and provide visible pause and end controls.
 
 ```ts
-// PENDING — not yet available in @amigo-ai/scribe-typescript-sdk (phase 16, in progress).
+import { ScribeRecorder } from '@amigo-ai/scribe-typescript-sdk'
+
 const recorder = new ScribeRecorder({
   sessionId,
-  ticketProvider, // same seams as ScribeStreamClient
-  allocateProvider,
-  onTurn,
-  onStateChange,
+  connectionProvider: async sessionId => {
+    const response = await fetch('/scribe/connection', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId }),
+    })
+    if (!response.ok) throw new Error(`Connection request failed: ${response.status}`)
+    return response.json() // your authenticated backend returns { host, ticket }
+  },
+  onTurn: segment => renderTranscript(segment),
+  onError: error => showRecordingError(error),
 })
-await recorder.start() // connect + start mic capture -> sendAudio
+await recorder.start()
 recorder.pause()
-recorder.resume()
+await recorder.resume()
 recorder.end()
 ```
 
-The `ticketProvider` / `allocateProvider` seams map 1:1 onto the ones shown in
-§5.2, so code you write against `ScribeStreamClient` today carries over. **Until
-it ships, use `ScribeStreamClient` + your own capture pipeline** (§4, §5.2).
-Check the SDK release notes for availability.
+Apply the application authentication and CSRF controls from §6 to the backend route. The recorder uses the same connection-provider seam as `ScribeStreamClient`; reconnecting obtains a fresh allocation and attach ticket. Ending the audio stream does not establish that an asynchronous note is ready or has been reviewed and finalized.
 
 ---
 
@@ -650,5 +643,3 @@ This is by design. The attach ticket (`aud=scribe-streaming`) is rejected at
 every REST endpoint; a REST provider JWT (`aud=https://api.platform.amigo.ai`)
 is rejected at the WebSocket. Use the provider JWT for CRUD and the attach ticket
 for the WS — they are not interchangeable.
-</content>
-</invoke>

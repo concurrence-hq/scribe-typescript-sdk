@@ -8,7 +8,7 @@
  *  - the recording-independent streaming WebSocket API client
  *    ({@link ScribeStreamClient}): attach-ticket transport, PCM16 send, control
  *    frames, keepalive, and resumable reconnect — fed caller-supplied PCM16
- *    bytes (no audio capture; the browser recorder is a separate phase). Plus
+ *    bytes. The exported ScribeRecorder supplies browser microphone capture, plus
  *    the pure transcript core (wire contract, {@link normalizeTurn},
  *    {@link transcriptReducer}, {@link buildWsUrl}).
  */
