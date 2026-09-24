@@ -1461,7 +1461,7 @@ export interface components {
         /**
          * StructuredNote
          * @description The canonical AMD structured-note envelope (design §2.3) — the only note
-         *     representation `PUT /sessions/{id}/note` accepts (`body` is deprecated, §2.6).
+         *     representation `PUT /sessions/{id}/note` accepts.
          *
          *     A write is a **complete-document replacement**, not a JSON merge: the client resends
          *     every value on each write, changing only what it means to change. The full document is
