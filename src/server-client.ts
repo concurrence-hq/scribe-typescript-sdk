@@ -31,6 +31,7 @@ import {
 import type { FetchLike } from './http'
 import type { AttachTicket, StreamAllocation } from './stream-client'
 import type { CreateSessionRequest, SessionResponse } from './types'
+import { trimTrailingSlashes } from './url'
 
 /** Re-mint a provider token this many ms before its real expiry (clock skew). */
 const PROVIDER_TOKEN_SKEW_MS = 30_000
@@ -113,8 +114,8 @@ export class ScribeServerClient {
     if (typeof resolvedFetch !== 'function') {
       throw new ConfigurationError('No fetch implementation available; pass config.fetch', 'fetch')
     }
-    this.identityBaseUrl = config.identityBaseUrl.replace(/\/+$/, '')
-    this.scribeBaseUrl = config.scribeBaseUrl.replace(/\/+$/, '')
+    this.identityBaseUrl = trimTrailingSlashes(config.identityBaseUrl)
+    this.scribeBaseUrl = trimTrailingSlashes(config.scribeBaseUrl)
     this.workspaceId = config.workspaceId
     this.clientId = config.clientId
     this.clientSecret = config.clientSecret

@@ -206,7 +206,7 @@ export interface paths {
          * @description Streaming Q&A over the session transcript + latest note (SPEC §3.3, header-auth fetch streaming).
          *
          *     Not persisted as an artifact — only a provenance row is recorded (its id is the `generation_id` in
-         *     the terminal `done` frame). Reuses `generation.py`'s provider clients + circuit breakers. Allowed on
+         *     the terminal `done` frame). Reuses `generation.py`'s provider clients. Allowed on
          *     a terminal session (post-visit Q&A is read-only; the post-finalize immutability guard applies only
          *     to regenerate-section + actions generation).
          */
@@ -296,8 +296,7 @@ export interface paths {
          *     short-circuits — no LLM call, no upsert — and returns the already-persisted `source='auto'` state; a
          *     changed (or first) input runs the LLM as before and then, under the session row lock, persists both
          *     the matched items and the new hash. This keeps a redundant re-check (client double-fire, reconnect,
-         *     or a fire ahead of a fresher server snapshot) cheap regardless of the client's cadence; the provider
-         *     circuit breakers remain the backstop against a runaway rate.
+         *     or a fire ahead of a fresher server snapshot) cheap regardless of the client's cadence.
          */
         post: operations["auto-check-session-checklist"];
         delete?: never;
@@ -758,6 +757,41 @@ export interface paths {
          *     already running recovers that bot instead of dispatching a second one.
          */
         post: operations["create-zoom-session"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/{workspace_id}/provider/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Provider Settings
+         * @description The calling provider's persisted scribe settings (currently the default Zoom meeting link).
+         *
+         *     Returns `{zoom_meeting_link: null}` when the provider has no settings row yet -- an unset link is a
+         *     valid state, never a 404. Provider-scoped via `_provider_id`; decoupled from the Zoom OAuth
+         *     connection, so a saved link persists whether or not Zoom is connected.
+         */
+        get: operations["get-provider-settings"];
+        /**
+         * Update Provider Settings
+         * @description Persist the calling provider's default Zoom meeting link (upsert), or clear it with a null.
+         *
+         *     The request model validates a non-null link (an http(s) `zoom.us` URL, personal-room aware, <=2048)
+         *     via the SAME `ZoomMeetingLink` type the create-zoom-session request uses, so both writes accept
+         *     identical links; a null clears the stored link. The normalized `str(HttpUrl)` form is stored
+         *     (HttpUrl lowercases the host and adds a trailing slash to a bare origin — a no-op for a real
+         *     meeting link, which always carries a path). Provider-scoped via `_provider_id`. Returns the
+         *     persisted settings.
+         */
+        put: operations["update-provider-settings"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1757,7 +1791,10 @@ export interface components {
             first_name?: string | null;
             /** Last Name */
             last_name?: string | null;
-            /** Meeting Link */
+            /**
+             * Meeting Link
+             * Format: uri
+             */
             meeting_link: string;
             /** Metadata */
             metadata?: {
@@ -1775,6 +1812,31 @@ export interface components {
             /** Bot Id */
             bot_id: string;
             session: components["schemas"]["SessionResponse"];
+        };
+        /**
+         * ProviderSettingsResponse
+         * @description Response of `GET`/`PUT /provider/settings` (V366).
+         *
+         *     The provider's persisted scribe settings. `zoom_meeting_link` is the server-side default Zoom
+         *     meeting link, decoupled from the Zoom OAuth connection; `null` means the provider has never saved
+         *     one (or has cleared it) -- an unset link is a valid state, never a 404.
+         */
+        ProviderSettingsResponse: {
+            /** Zoom Meeting Link */
+            zoom_meeting_link?: string | null;
+        };
+        /**
+         * ProviderSettingsUpdateRequest
+         * @description Body of `PUT /provider/settings`.
+         *
+         *     Sets the provider's default Zoom meeting link, or clears it with an explicit `null`. A non-null
+         *     link is validated as a `zoom.us` http(s) URL (personal-room aware, <=2048) via the shared
+         *     `ZoomMeetingLink` type the create-zoom-session request also uses. The wire value stays a plain JSON
+         *     string; the handler stores the normalized `str(HttpUrl)`.
+         */
+        ProviderSettingsUpdateRequest: {
+            /** Zoom Meeting Link */
+            zoom_meeting_link?: string | null;
         };
     };
     responses: never;
@@ -4481,6 +4543,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    "get-provider-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderSettingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    "update-provider-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                workspace_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProviderSettingsUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderSettingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

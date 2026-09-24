@@ -2,6 +2,10 @@
 
 Framework-agnostic TypeScript SDK for the Amigo **Scribe** streaming service.
 
+[Developer Guide](https://docs.amigo.ai/developer-guide/platform-api/scribe) · [API Reference](https://docs.amigo.ai/api-reference/readme/scribe) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
+
+Use this package for provider Scribe sessions, audio capture, transcription, and note workflows. Scribe has separate service hosts and credentials from the general Platform and Classic APIs. Obtain workspace access, an authorized clinician, and a visit type with a configured note template before making requests.
+
 This release ships the **CRUD REST client** for the full session lifecycle and
 its per-session artifacts:
 
@@ -11,7 +15,7 @@ Session lifecycle:
 - `allocate` — `POST /v1/{workspace_id}/sessions/{session_id}/allocate` → `{ host, expires_at }`
 - `listSessions` — `GET /v1/{workspace_id}/sessions` (cursor-paginated: `limit`, `continuation_token`)
 - `getSession` — `GET /v1/{workspace_id}/sessions/{session_id}`
-- `updateSession` — `PATCH /v1/{workspace_id}/sessions/{session_id}` (mutate `external_appointment_id` / `metadata` / `mode`)
+- `updateSession` — `PATCH /v1/{workspace_id}/sessions/{session_id}` (update supported appointment, metadata, patient-name, and visit-template fields; mode is fixed at creation)
 - `endSession` — `POST /v1/{workspace_id}/sessions/{session_id}/end` (guarded → `in-review`)
 - `cancelSession` — `POST /v1/{workspace_id}/sessions/{session_id}/cancel` (guarded → `cancelled`)
 - `getTranscript` — `GET /v1/{workspace_id}/sessions/{session_id}/transcript`
@@ -26,7 +30,7 @@ Artifacts (note / summary / checklist / codes):
 - `getNote` — `GET /v1/{workspace_id}/sessions/{session_id}/note`
 - `generateNote` — `POST /v1/{workspace_id}/sessions/{session_id}/note` (pass a `note_type` `NoteTemplate`; `amd-*` templates emit the `StructuredNote` envelope, `structured` populated / `body` null)
 - `putNote` — `PUT /v1/{workspace_id}/sessions/{session_id}/note` — versioned autosave; send the full `StructuredNote` envelope in `structured` + `base_version` (complete-document replacement). Stale `base_version` → `409 version_conflict`, post-finalize → `409 invalid_session_state`
-- `finalizeNote` — `POST /v1/{workspace_id}/sessions/{session_id}/note/finalize` (missing required AMD/template field → `422 finalize_validation_failed`)
+- `finalizeNote` — `POST /v1/{workspace_id}/sessions/{session_id}/note/finalize` (send the reviewed note's `base_version`; stale versions conflict and missing required template fields fail validation)
 - `getSummary` — `GET /v1/{workspace_id}/sessions/{session_id}/summary`
 - `generateSummary` — `POST /v1/{workspace_id}/sessions/{session_id}/summary`
 - `getChecklist` — `GET /v1/{workspace_id}/sessions/{session_id}/checklist`
@@ -104,6 +108,7 @@ const scribe = new ScribeClient({
 // 1. Create a session
 const session = await scribe.createSession({
   external_id: 'appointment-42',
+  visit_type: 'medical', // use the canonical visit type configured for this workspace
   metadata: { clinic: 'north' },
 })
 
@@ -139,7 +144,10 @@ const server = new ScribeServerClient({
 })
 
 // `clinicianEmail` comes from YOUR authenticated app session (never the browser).
-const session = await server.createSession(clinicianEmail, { external_id: 'appointment-42' })
+const session = await server.createSession(clinicianEmail, {
+  external_id: 'appointment-42',
+  visit_type: 'medical', // requires a matching configured note template
+})
 
 // Encapsulating helper: one allocate + one ticket mint → the browser-safe bundle.
 const { host, ticket } = await server.prepareConnection(clinicianEmail, session.id)
@@ -178,8 +186,9 @@ const client = new ScribeStreamClient({
   onError: err => console.error(err),
 })
 
-await client.connect() // resolve host + ticket → open WS
-client.sendAudio(pcm16) // ArrayBuffer | Uint8Array — you own capture
+await client.connect() // resolves connection setup; observe onStateChange for streaming
+// Send only once onStateChange reports streaming (or use ScribeRecorder below).
+// client.sendAudio(pcm16) accepts ArrayBuffer | Uint8Array; you own capture.
 client.pause()
 client.resume()
 client.end() // finalize + clean close (1000)
@@ -206,7 +215,7 @@ chunk to `sendAudio`; `pause`/`resume`/`end` drive both capture and the client.
 Browser-only (needs `getUserMedia`/`AudioContext`).
 
 ```ts
-import { ScribeRecorder } from '@amigo-ai/scribe'
+import { ScribeRecorder } from '@amigo-ai/scribe-typescript-sdk'
 
 const recorder = new ScribeRecorder({
   sessionId: session.id,
@@ -265,7 +274,7 @@ failure.
 ## Development
 
 ```bash
-npm install
+npm ci
 npm run openapi:sync     # refresh openapi/scribe.json from production (network)
 npm run generate:schema  # regenerate src/generated/openapi.ts from openapi/scribe.json
 npm run build            # esbuild (ESM) + tsc (.d.ts) + NodeNext .js-extension fixup
