@@ -7,9 +7,8 @@
  * the token is absent — it never mints or hardcodes credentials — so CI / fork
  * PRs without a token stay green. The host URLs are hard prerequisites (no
  * defaults): CI supplies `SCRIBE_E2E_BASE_URL` and `SCRIBE_E2E_IDENTITY_BASE_URL`
- * from repository variables behind a fail-fast preflight (staging:
- * `https://scribe-staging.platform.amigo.ai` and the identity/OTP host
- * `https://api-staging.platform.amigo.ai`); local runs must export them.
+ * from repository variables behind a fail-fast preflight; local runs must
+ * export them.
  *
  * Flow (SPEC §6.1 P4, phase 08):
  *   instantiate `ScribeClient` with an ASYNC token provider

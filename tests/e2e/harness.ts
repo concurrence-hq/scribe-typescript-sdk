@@ -207,7 +207,7 @@ export function sleep(ms: number): Promise<void> {
 // The e2e suites create ad-hoc `sdk-e2e-*` sessions. A never-streamed session
 // is failed by the backend's no-activity watchdog ~5 min later, so on a SHARED
 // provider those pile up as "failed" sessions (114 observed on the staging
-// `caly@amigo.ai` provider). To leave zero residue, every suite tracks the ids
+// `caly@concurrence.com` provider). To leave zero residue, every suite tracks the ids
 // it creates and cancels them in `afterAll` via the provider-scoped client.
 //
 // There is no session-delete endpoint; `cancelSession` (guarded → `cancelled`,

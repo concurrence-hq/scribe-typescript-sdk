@@ -121,8 +121,8 @@ jobs:
           SCRIBE_E2E_BASE_URL: ${{ vars.SCRIBE_E2E_BASE_URL }}
           SCRIBE_E2E_IDENTITY_BASE_URL: ${{ vars.SCRIBE_E2E_IDENTITY_BASE_URL }}
         run: |
-          : "${SCRIBE_E2E_BASE_URL:?repository variable SCRIBE_E2E_BASE_URL is required (e.g. https://scribe-staging.platform.amigo.ai)}"
-          : "${SCRIBE_E2E_IDENTITY_BASE_URL:?repository variable SCRIBE_E2E_IDENTITY_BASE_URL is required (e.g. https://api-staging.platform.amigo.ai)}"
+          : "${SCRIBE_E2E_BASE_URL:?repository variable SCRIBE_E2E_BASE_URL is required}"
+          : "${SCRIBE_E2E_IDENTITY_BASE_URL:?repository variable SCRIBE_E2E_IDENTITY_BASE_URL is required}"
 
       - name: Run E2E tests (staging)
         env:

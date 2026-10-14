@@ -71,7 +71,7 @@ another provider's session, asserted by the not-found cases.
   it transitions the session to the terminal `cancelled` state so the backend's
   **no-activity watchdog never reaps a never-streamed session as `failed`**. (On
   a shared provider, un-torn-down sessions previously accumulated as failed —
-  ~114 observed on the staging `caly@amigo.ai` provider — because the watchdog
+  ~114 observed on the staging `caly@concurrence.com` provider — because the watchdog
   fails any session with no streaming activity ~5 min after creation.)
 - Teardown is **best-effort and idempotent**: an already-terminal session
   (including a streamed+ended `in-review` one) returns `409` and a missing/
@@ -107,8 +107,8 @@ change**: set `SCRIBE_E2E_PROVIDER_EMAIL` to a dedicated email (e.g. a
 Create a `.env` at the repo root (git-ignored):
 
 ```dotenv
-SCRIBE_E2E_BASE_URL=https://scribe-staging.platform.amigo.ai
-SCRIBE_E2E_IDENTITY_BASE_URL=https://api-staging.platform.amigo.ai
+SCRIBE_E2E_BASE_URL=<scribe staging CRUD API host>
+SCRIBE_E2E_IDENTITY_BASE_URL=<identity/OTP staging host>
 SCRIBE_E2E_WORKSPACE_ID=<workspace id of the provider-M2M client>
 SCRIBE_E2E_PROVIDER_EMAIL=<a provider WITH an active grant in that workspace>
 SCRIBE_M2M_CLIENT_ID=<provider-M2M client id>

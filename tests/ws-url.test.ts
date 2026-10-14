@@ -3,8 +3,8 @@ import { buildWsUrl } from '../src/ws-url'
 
 describe('buildWsUrl', () => {
   it('builds wss://<host>/agent/stream/connect?session_id=...', () => {
-    expect(buildWsUrl('gs-abc.actors.platform.amigo.ai', 'sess-1')).toBe(
-      'wss://gs-abc.actors.platform.amigo.ai/agent/stream/connect?session_id=sess-1'
+    expect(buildWsUrl('gs-abc.actors-us.concurrence.com', 'sess-1')).toBe(
+      'wss://gs-abc.actors-us.concurrence.com/agent/stream/connect?session_id=sess-1'
     )
   })
 

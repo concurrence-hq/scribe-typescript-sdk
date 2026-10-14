@@ -7,10 +7,8 @@
  * Env-gated on `SCRIBE_E2E_TOKEN` (a provider JWT from the human-in-the-loop
  * email-OTP flow; ~15-min TTL). The suite **self-skips** when the token is
  * absent — it never mints or hardcodes credentials — so CI / fork PRs without a
- * token stay green. Host URLs are hard prerequisites (staging:
- * `https://scribe-staging.platform.amigo.ai`, identity/OTP host
- * `https://api-staging.platform.amigo.ai`), supplied by CI repo variables; local
- * runs must export them.
+ * token stay green. Host URLs are hard prerequisites, supplied by CI repo
+ * variables; local runs must export them.
  *
  * Flow (mirrors the GA post-visit suite's real-speech setup, then exercises the
  * assist endpoints against a session that HAS a transcript + note):
