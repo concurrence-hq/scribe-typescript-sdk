@@ -102,8 +102,8 @@ Requires Node.js ≥ 20 (or any modern browser / runtime with `fetch` +
 import { ScribeClient, ServiceUnavailableError } from '@concurrence-hq/scribe-typescript-sdk'
 
 const scribe = new ScribeClient({
-  // Scribe API (CRUD) host — production. (Staging: https://scribe-staging.platform.amigo.ai)
-  baseUrl: 'https://scribe.platform.amigo.ai',
+  // Scribe API (CRUD) host — production. (Staging: https://scribe.api-staging.concurrence.com)
+  baseUrl: 'https://scribe.api-us.concurrence.com',
   // A provider JWT carrying `scribe:sessions:write` (+ `scribe:sessions:read_own`
   // for transcripts). Pass a string, or a (possibly async) supplier to refresh
   // a short-lived token per request.
@@ -144,8 +144,8 @@ browser bundle.**
 import { ScribeServerClient } from '@concurrence-hq/scribe-typescript-sdk'
 
 const server = new ScribeServerClient({
-  identityBaseUrl: 'https://api.platform.amigo.ai', // identity /token (mints)
-  scribeBaseUrl: 'https://scribe.platform.amigo.ai', // Scribe CRUD
+  identityBaseUrl: 'https://identity.api-us.concurrence.com', // identity /token (mints)
+  scribeBaseUrl: 'https://scribe.api-us.concurrence.com', // Scribe CRUD
   workspaceId: 'ws_123',
   clientId: process.env.AMIGO_M2M_CLIENT_ID!,
   clientSecret: process.env.AMIGO_M2M_CLIENT_SECRET!, // server-side only
@@ -304,7 +304,7 @@ the types cleanly. Validate with `npm run validate` (publint + attw + `npm pack
 
 **Wire types.** The REST wire types in `src/types.ts` are derived from the Scribe
 service's **production OpenAPI document**
-(`https://scribe.platform.amigo.ai/v1/openapi.json`, vendored at
+(`https://scribe.api-us.concurrence.com/v1/openapi.json`, vendored at
 `openapi/scribe.json`) via [`openapi-typescript`](https://github.com/openapi-ts/openapi-typescript).
 To refresh types after the API schema changes:
 
