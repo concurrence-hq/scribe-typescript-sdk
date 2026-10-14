@@ -41,7 +41,7 @@ session's WebSocket.
 | Token audience / scope | `https://identity.api-us.concurrence.com` / `scribe:sessions:write` (+ `scribe:sessions:read_own`, `scribe:notes:rw_own`)                  | `scribe-streaming` / `scribe:streams:connect` **only**                                 |
 | Can do                 | create session, allocate a host, mint attach tickets, read transcript / note / summary / checklist / codes for its own provider's sessions | attach to **one** WS session, stream PCM16 up, receive that session's transcripts down |
 | Cannot do              | (full provider scope for its own sessions)                                                                                                 | any REST call (audience rejected); attach to any other session; mint further tickets   |
-| Network                | server→server to `scribe.api-us.concurrence.com` + `identity.api-us.concurrence.com` (no CORS)                                             | WS-only to `wss://<gameserver>.actors.platform.amigo.ai`                               |
+| Network                | server→server to `scribe.api-us.concurrence.com` + `identity.api-us.concurrence.com` (no CORS)                                             | WS-only to `wss://<gameserver>.actors-us.concurrence.com`                              |
 
 **The three requests your backend makes to Amigo per recording:**
 
@@ -361,7 +361,7 @@ unacked ring-buffer audio.
 ### The WebSocket is browser-direct
 
 `ScribeStreamClient` runs **in the browser** and opens the WebSocket **directly to
-the allocated Amigo gameserver** (`wss://<host>.actors.platform.amigo.ai`) — that
+the allocated Amigo gameserver** (`wss://<host>.actors-us.concurrence.com`) — that
 socket is the one browser↔Amigo hop (§1). Only REST and the two mints are proxied
 through your backend. You don't need any extra plumbing for the direct
 connection; using `ScribeStreamClient` _is_ how the browser connects directly.
@@ -540,8 +540,8 @@ ticket ephemeral in the browser.
   and allocate responses. The SDK re-mints per (re)connect, so there's no need to
   persist it.
 - **CSP.** Allow the WS host explicitly, e.g.
-  `connect-src wss://*.actors.platform.amigo.ai` (staging:
-  `wss://*.actors-staging.platform.amigo.ai`).
+  `connect-src wss://*.actors-us.concurrence.com` (staging:
+  `wss://*.actors-staging.concurrence.com`).
 - **Microphone.** Gate capture with a `Permissions-Policy` /
   `allow="microphone"` as appropriate for your embedding.
 - **CSRF.** Your `/scribe/connection` (and any allocate/ticket) routes are
@@ -590,11 +590,11 @@ Apply the application authentication and CSRF controls from §6 to the backend r
 
 ## 8. Hosts and environments
 
-| Purpose                                    | Production                                    | Staging                                               |
-| ------------------------------------------ | --------------------------------------------- | ----------------------------------------------------- |
-| Scribe CRUD API (`ScribeClient` `baseUrl`) | `https://scribe.api-us.concurrence.com`       | `https://scribe.api-staging.concurrence.com`          |
-| Identity `/token` (mints)                  | `https://identity.api-us.concurrence.com`     | `https://identity.api-staging.concurrence.com`        |
-| Streaming WS host (actors domain)          | `wss://<gameserver>.actors.platform.amigo.ai` | `wss://<gameserver>.actors-staging.platform.amigo.ai` |
+| Purpose                                    | Production                                     | Staging                                             |
+| ------------------------------------------ | ---------------------------------------------- | --------------------------------------------------- |
+| Scribe CRUD API (`ScribeClient` `baseUrl`) | `https://scribe.api-us.concurrence.com`        | `https://scribe.api-staging.concurrence.com`        |
+| Identity `/token` (mints)                  | `https://identity.api-us.concurrence.com`      | `https://identity.api-staging.concurrence.com`      |
+| Streaming WS host (actors domain)          | `wss://<gameserver>.actors-us.concurrence.com` | `wss://<gameserver>.actors-staging.concurrence.com` |
 
 The WS `host` is returned by `allocate` — you never hardcode a gameserver name;
 you attach to `wss://<host>/agent/stream/connect?session_id=...` (the SDK's

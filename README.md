@@ -8,7 +8,7 @@ Framework-agnostic TypeScript SDK for the Amigo **Scribe** streaming service.
 > `@concurrence-hq/scribe-typescript-sdk` and update your imports. The API is
 > unchanged.
 
-[Developer Guide](https://docs.amigo.ai/developer-guide/platform-api/scribe) · [API Reference](https://docs.amigo.ai/api-reference/readme/scribe) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
+[Developer Guide](https://docs.concurrence.com/developer-guide/platform-api/scribe) · [API Reference](https://docs.concurrence.com/api-reference/readme/scribe) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
 
 Use this package for provider Scribe sessions, audio capture, transcription, and note workflows. Scribe has separate service hosts and credentials from the general Platform and Classic APIs. Obtain workspace access, an authorized clinician, and a visit type with a configured note template before making requests.
 
