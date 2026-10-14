@@ -2,7 +2,7 @@
  * Wire types for the Scribe CRUD REST API.
  *
  * These are derived directly from the Scribe service's **production OpenAPI
- * document** (`https://scribe.platform.amigo.ai/v1/openapi.json`, vendored at
+ * document** (`https://scribe.api-us.concurrence.com/v1/openapi.json`, vendored at
  * `openapi/scribe.json`) via `openapi-typescript` — see
  * `src/generated/openapi.ts` and `npm run generate:schema`. Aliasing the
  * generated `components["schemas"]` entries here keeps a single source of truth

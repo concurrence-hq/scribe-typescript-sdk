@@ -5,7 +5,7 @@
  *   1. Explicit --spec path/to/spec.json within this repo (local file)
  *   2. Explicit --url https://... (alternate HTTPS source)
  *   3. Default: the Scribe service's production OpenAPI document
- *      https://scribe.platform.amigo.ai/v1/openapi.json
+ *      https://scribe.api-us.concurrence.com/v1/openapi.json
  *
  * Unlike `amigo-platform-typescript-sdk` (which prefers a local `../platform`
  * sibling checkout), the Scribe SDK has no sibling repo, so the default source
@@ -20,7 +20,7 @@ import { fileURLToPath } from 'node:url'
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = path.resolve(SCRIPT_DIR, '..')
 const OUT_FILE = path.resolve(REPO_ROOT, 'openapi/scribe.json')
-const DEFAULT_SPEC_URL = 'https://scribe.platform.amigo.ai/v1/openapi.json'
+const DEFAULT_SPEC_URL = 'https://scribe.api-us.concurrence.com/v1/openapi.json'
 
 const args = process.argv.slice(2)
 

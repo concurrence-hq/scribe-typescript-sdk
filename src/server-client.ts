@@ -39,9 +39,9 @@ const PROVIDER_TOKEN_SKEW_MS = 30_000
 const DEFAULT_PROVIDER_TTL_S = 900
 
 export interface ScribeServerClientConfig {
-  /** Identity `/token` base URL, e.g. `https://api.platform.amigo.ai`. */
+  /** Identity `/token` base URL, e.g. `https://identity.api-us.concurrence.com`. */
   identityBaseUrl: string
-  /** Scribe CRUD base URL, e.g. `https://scribe.platform.amigo.ai`. */
+  /** Scribe CRUD base URL, e.g. `https://scribe.api-us.concurrence.com`. */
   scribeBaseUrl: string
   /** Workspace the provider-M2M client is scoped to. */
   workspaceId: string

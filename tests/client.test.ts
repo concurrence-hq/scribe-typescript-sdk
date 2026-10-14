@@ -161,7 +161,7 @@ describe('createSession', () => {
 describe('allocate', () => {
   it('POSTs to the allocate path and returns { host, expires_at }', async () => {
     const alloc = {
-      host: 'gs-abc.actors-staging.platform.amigo.ai',
+      host: 'gs-abc.actors-staging.concurrence.com',
       expires_at: '2026-07-19T02:00:00Z',
     }
     const { fetch, calls } = mockFetch([{ status: 200, body: alloc }])

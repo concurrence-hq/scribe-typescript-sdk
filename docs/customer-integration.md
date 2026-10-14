@@ -38,10 +38,10 @@ session's WebSocket.
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
 | Holds                  | `client_id` + `client_secret`; per-clinician provider JWT (15 min)                                                                         | one **attach ticket** (WS-only, ~5 min)                                                |
 | Auth to Amigo          | `POST /token` `grant_type=client_credentials` + `provider_email` → provider JWT                                                            | `Sec-WebSocket-Protocol: "auth, <attach-ticket>"` on WS attach                         |
-| Token audience / scope | `https://api.platform.amigo.ai` / `scribe:sessions:write` (+ `scribe:sessions:read_own`, `scribe:notes:rw_own`)                            | `scribe-streaming` / `scribe:streams:connect` **only**                                 |
+| Token audience / scope | `https://identity.api-us.concurrence.com` / `scribe:sessions:write` (+ `scribe:sessions:read_own`, `scribe:notes:rw_own`)                  | `scribe-streaming` / `scribe:streams:connect` **only**                                 |
 | Can do                 | create session, allocate a host, mint attach tickets, read transcript / note / summary / checklist / codes for its own provider's sessions | attach to **one** WS session, stream PCM16 up, receive that session's transcripts down |
 | Cannot do              | (full provider scope for its own sessions)                                                                                                 | any REST call (audience rejected); attach to any other session; mint further tickets   |
-| Network                | server→server to `scribe.platform.amigo.ai` + `api.platform.amigo.ai` (no CORS)                                                            | WS-only to `wss://<gameserver>.actors.platform.amigo.ai`                               |
+| Network                | server→server to `scribe.api-us.concurrence.com` + `identity.api-us.concurrence.com` (no CORS)                                             | WS-only to `wss://<gameserver>.actors-us.concurrence.com`                              |
 
 **The three requests your backend makes to Amigo per recording:**
 
@@ -240,7 +240,7 @@ method:
 | `provider_email` | the logged-in clinician's email (lower-cased, trimmed) |
 
 Response: `{ access_token, token_type, expires_in, scope }`. The `access_token`
-is a **provider JWT** (`aud=https://api.platform.amigo.ai`, ~15 min) whose `sub`
+is a **provider JWT** (`aud=https://identity.api-us.concurrence.com`, ~15 min) whose `sub`
 is the clinician's provider entity. Use it as the bearer for create/allocate and
 as the `subject_token` for the attach-ticket exchange.
 
@@ -361,7 +361,7 @@ unacked ring-buffer audio.
 ### The WebSocket is browser-direct
 
 `ScribeStreamClient` runs **in the browser** and opens the WebSocket **directly to
-the allocated Amigo gameserver** (`wss://<host>.actors.platform.amigo.ai`) — that
+the allocated Amigo gameserver** (`wss://<host>.actors-us.concurrence.com`) — that
 socket is the one browser↔Amigo hop (§1). Only REST and the two mints are proxied
 through your backend. You don't need any extra plumbing for the direct
 connection; using `ScribeStreamClient` _is_ how the browser connects directly.
@@ -405,8 +405,8 @@ with your workspace + M2M credentials; every method takes the clinician's email
 import { ScribeServerClient } from '@concurrence-hq/scribe-typescript-sdk'
 
 const server = new ScribeServerClient({
-  identityBaseUrl: 'https://api.platform.amigo.ai', // identity /token (mints)
-  scribeBaseUrl: 'https://scribe.platform.amigo.ai', // Scribe CRUD
+  identityBaseUrl: 'https://identity.api-us.concurrence.com', // identity /token (mints)
+  scribeBaseUrl: 'https://scribe.api-us.concurrence.com', // Scribe CRUD
   workspaceId: process.env.AMIGO_WORKSPACE_ID!,
   clientId: process.env.AMIGO_M2M_CLIENT_ID!,
   clientSecret: process.env.AMIGO_M2M_CLIENT_SECRET!, // server-side only
@@ -540,8 +540,8 @@ ticket ephemeral in the browser.
   and allocate responses. The SDK re-mints per (re)connect, so there's no need to
   persist it.
 - **CSP.** Allow the WS host explicitly, e.g.
-  `connect-src wss://*.actors.platform.amigo.ai` (staging:
-  `wss://*.actors-staging.platform.amigo.ai`).
+  `connect-src wss://*.actors-us.concurrence.com` (staging:
+  `wss://*.actors-staging.concurrence.com`).
 - **Microphone.** Gate capture with a `Permissions-Policy` /
   `allow="microphone"` as appropriate for your embedding.
 - **CSRF.** Your `/scribe/connection` (and any allocate/ticket) routes are
@@ -590,11 +590,11 @@ Apply the application authentication and CSRF controls from §6 to the backend r
 
 ## 8. Hosts and environments
 
-| Purpose                                    | Production                                    | Staging                                               |
-| ------------------------------------------ | --------------------------------------------- | ----------------------------------------------------- |
-| Scribe CRUD API (`ScribeClient` `baseUrl`) | `https://scribe.platform.amigo.ai`            | `https://scribe-staging.platform.amigo.ai`            |
-| Identity `/token` (mints)                  | `https://api.platform.amigo.ai`               | `https://api-staging.platform.amigo.ai`               |
-| Streaming WS host (actors domain)          | `wss://<gameserver>.actors.platform.amigo.ai` | `wss://<gameserver>.actors-staging.platform.amigo.ai` |
+| Purpose                                    | Production                                     | Staging                                             |
+| ------------------------------------------ | ---------------------------------------------- | --------------------------------------------------- |
+| Scribe CRUD API (`ScribeClient` `baseUrl`) | `https://scribe.api-us.concurrence.com`        | `https://scribe.api-staging.concurrence.com`        |
+| Identity `/token` (mints)                  | `https://identity.api-us.concurrence.com`      | `https://identity.api-staging.concurrence.com`      |
+| Streaming WS host (actors domain)          | `wss://<gameserver>.actors-us.concurrence.com` | `wss://<gameserver>.actors-staging.concurrence.com` |
 
 The WS `host` is returned by `allocate` — you never hardcode a gameserver name;
 you attach to `wss://<host>/agent/stream/connect?session_id=...` (the SDK's
@@ -640,6 +640,6 @@ seconds and retry. Do **not** loop tightly.
 ### A REST call rejects the ticket / a WS attach rejects the JWT
 
 This is by design. The attach ticket (`aud=scribe-streaming`) is rejected at
-every REST endpoint; a REST provider JWT (`aud=https://api.platform.amigo.ai`)
+every REST endpoint; a REST provider JWT (`aud=https://identity.api-us.concurrence.com`)
 is rejected at the WebSocket. Use the provider JWT for CRUD and the attach ticket
 for the WS — they are not interchangeable.

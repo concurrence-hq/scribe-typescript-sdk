@@ -55,7 +55,7 @@ const BOT_STATES = new Set([
 ])
 
 export interface StreamSessionEventsOptions {
-  /** Base URL of the Scribe API, e.g. `https://scribe.platform.amigo.ai`. */
+  /** Base URL of the Scribe API, e.g. `https://scribe.api-us.concurrence.com`. */
   baseUrl: string
   /** Workspace id (the path is `/v1/{workspace_id}/sessions/{id}/events`). */
   workspaceId: string
