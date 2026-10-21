@@ -70,6 +70,10 @@ export type CreateSessionRequest = Omit<Schemas['CreateSessionRequest'], 'mode'>
  * Response from create-session (`SessionResponse`).
  *
  * NOTE: the session identifier field is `id`, not `session_id`.
+ *
+ * `effective_started_at` / `effective_ended_at` are the visit start / end the EHR
+ * note uses — the clinician's edit when one was saved (`*_edited: true`), else
+ * `started_at` / `ended_at`.
  */
 export type SessionResponse = Schemas['SessionResponse']
 
@@ -139,6 +143,12 @@ export type SessionListResponse = Omit<Schemas['SessionListResponse'], 'continua
  * `visit_type` and `note_template` (a {@link NoteTemplate}) — are likewise
  * settable here (same nullable-clear semantics), mirroring
  * {@link CreateSessionRequest}.
+ *
+ * `effective_started_at` / `effective_ended_at` set the clinician-confirmed visit
+ * start / end (timezone-aware ISO-8601) the EHR note's times use; omit to leave
+ * one untouched, `null` to reset it to the recorded time. See
+ * {@link ScribeClient.updateSession} for the validation rules and errors
+ * (`invalid_effective_start` / `invalid_effective_end`, `invalid_session_state`).
  */
 export type UpdateSessionRequest = Schemas['UpdateSessionRequest']
 
@@ -149,7 +159,9 @@ export type UpdateSessionRequest = Schemas['UpdateSessionRequest']
  * A focused subset of {@link SessionResponse} (id + status + lifecycle
  * timestamps, minus the artifact-availability sub-object) so a client can render
  * the appointment's visit state without a second lookup. `null` when the
- * appointment has no linked session yet.
+ * appointment has no linked session yet. Carries the same resolved
+ * `effective_started_at` / `effective_ended_at` (+ `*_edited` flags) as
+ * {@link SessionResponse}.
  */
 export type AppointmentSession = Schemas['AppointmentSession']
 
@@ -322,6 +334,13 @@ export function isGenerationEnqueued(
  * the {@link WritebackStatus} (`writeback_status`) for the note's EHR writeback.
  */
 export type NoteReadResponse = Schemas['NoteReadResponse']
+
+/**
+ * Whether `NoteReadResponse.carry_forward_available` reflects the EHR: `ok`
+ * (fetched), `unavailable` (EHR-linked note but the carry-forward could not be
+ * fetched — the empty list is lack of data), or `not_applicable`.
+ */
+export type CarryForwardStatus = Schemas['CarryForwardStatus']
 
 /** Reload-safe summary poller (`SummaryReadResponse`) — carries `generation_status`. */
 export type SummaryReadResponse = Schemas['SummaryReadResponse']

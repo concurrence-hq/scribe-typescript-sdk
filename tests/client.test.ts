@@ -654,6 +654,60 @@ describe('updateSession', () => {
     })
   })
 
+  it('patches the clinician-confirmed visit times and returns the resolved effective times', async () => {
+    const session = {
+      id: 'sess-1',
+      started_at: '2026-09-28T15:07:30Z',
+      ended_at: '2026-09-28T16:00:00Z',
+      effective_started_at: '2026-09-28T15:00:00Z',
+      effective_started_at_edited: true,
+      effective_ended_at: '2026-09-28T16:00:00Z',
+      effective_ended_at_edited: false,
+    }
+    const { fetch, calls } = mockFetch([{ status: 200, body: session }])
+    const patch: UpdateSessionRequest = {
+      effective_started_at: '2026-09-28T15:00:00Z',
+      effective_ended_at: null,
+    }
+    const result = await client(fetch).updateSession('sess-1', patch)
+    expect(JSON.parse(String(calls[0]!.init?.body))).toEqual({
+      effective_started_at: '2026-09-28T15:00:00Z',
+      effective_ended_at: null,
+    })
+    expect(result.effective_started_at_edited).toBe(true)
+    expect(result.effective_ended_at).toBe('2026-09-28T16:00:00Z')
+  })
+
+  it.each(['invalid_effective_start', 'invalid_effective_end'])(
+    'maps a 422 %s rejection to ValidationError carrying the errorCode',
+    async code => {
+      const { fetch } = mockFetch([
+        {
+          status: 422,
+          body: {
+            code,
+            detail: 'The session start must be before the session end',
+            details: [{ field: 'effective_ended_at', message: 'synthetic' }],
+          },
+        },
+      ])
+      const err = await client(fetch)
+        .updateSession('sess-1', { effective_ended_at: '2026-09-28T14:00:00Z' })
+        .catch(e => e)
+      expect(err).toBeInstanceOf(ValidationError)
+      expect(err.errorCode).toBe(code)
+    }
+  )
+
+  it('maps a 409 invalid_session_state time edit (note finalized) to ConflictError', async () => {
+    const { fetch } = mockFetch([
+      { status: 409, body: { code: 'invalid_session_state', detail: 'terminal' } },
+    ])
+    await expect(
+      client(fetch).updateSession('sess-1', { effective_started_at: null })
+    ).rejects.toBeInstanceOf(ConflictError)
+  })
+
   it('url-encodes the session id', async () => {
     const { fetch, calls } = mockFetch([{ status: 200, body: { id: 'x' } }])
     await client(fetch).updateSession('a/b c', { metadata: { a: 1 } })
