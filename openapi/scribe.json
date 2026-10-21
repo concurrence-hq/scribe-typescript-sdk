@@ -2365,6 +2365,14 @@
           },
           "writeback_status": {
             "$ref": "#/components/schemas/WritebackStatus"
+          },
+          "prior_diagnoses": {
+            "description": "Diagnoses on the patient's signed prior EHR notes, newest first, each code once — offered in the diagnosis picker. Empty unless carry_forward_status is ok.",
+            "items": {
+              "$ref": "#/components/schemas/PriorDiagnosisResponse"
+            },
+            "title": "Prior Diagnoses",
+            "type": "array"
           }
         },
         "required": [
@@ -2480,6 +2488,42 @@
           "clinician"
         ],
         "type": "string"
+      },
+      "PriorDiagnosisResponse": {
+        "description": "One diagnosis from the patient's signed prior EHR notes (ehr-note-writeback phase 121), offered in the\nnote's diagnosis picker so the clinician can add it with one click.\n\nPHI: `code` and `description` are patient diagnoses — returned to the authenticated clinician like the\nnote body, never logged.",
+        "properties": {
+          "code": {
+            "description": "ICD-10-CM code from the prior note, trimmed and upper-cased.",
+            "maxLength": 64,
+            "title": "Code",
+            "type": "string"
+          },
+          "description": {
+            "default": "",
+            "description": "Diagnosis description as written on the prior note; empty when only the code was entered.",
+            "maxLength": 2000,
+            "title": "Description",
+            "type": "string"
+          },
+          "last_signed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the newest signed prior note that used this code was signed (UTC).",
+            "title": "Last Signed At"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "PriorDiagnosisResponse",
+        "type": "object"
       },
       "ProviderSettingsResponse": {
         "description": "Response of `GET`/`PUT /provider/settings` (V366).\n\nThe provider's persisted scribe settings. `zoom_meeting_link` is the server-side default Zoom\nmeeting link, decoupled from the Zoom OAuth connection; `null` means the provider has never saved\none (or has cleared it) -- an unset link is a valid state, never a 404.",

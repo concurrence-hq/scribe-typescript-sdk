@@ -323,6 +323,13 @@ export function isGenerationEnqueued(
  */
 export type NoteReadResponse = Schemas['NoteReadResponse']
 
+/**
+ * One diagnosis from the patient's signed prior EHR notes (`PriorDiagnosisResponse`),
+ * carried on {@link NoteReadResponse} as `prior_diagnoses` (newest first, each code
+ * once; empty unless the carry-forward was fetched). PHI — never log it.
+ */
+export type PriorDiagnosisResponse = Schemas['PriorDiagnosisResponse']
+
 /** Reload-safe summary poller (`SummaryReadResponse`) — carries `generation_status`. */
 export type SummaryReadResponse = Schemas['SummaryReadResponse']
 
