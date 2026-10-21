@@ -275,6 +275,42 @@
             "title": "Created At",
             "type": "string"
           },
+          "effective_ended_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The clinician's edited visit end when one was saved, else `ended_at`.",
+            "title": "Effective Ended At"
+          },
+          "effective_ended_at_edited": {
+            "description": "Whether `effective_ended_at` is a clinician edit rather than `ended_at`.",
+            "title": "Effective Ended At Edited",
+            "type": "boolean"
+          },
+          "effective_started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The clinician's edited visit start when one was saved, else `started_at`.",
+            "title": "Effective Started At"
+          },
+          "effective_started_at_edited": {
+            "description": "Whether `effective_started_at` is a clinician edit rather than `started_at`.",
+            "title": "Effective Started At Edited",
+            "type": "boolean"
+          },
           "ended_at": {
             "anyOf": [
               {
@@ -331,7 +367,11 @@
           "started_at",
           "ended_at",
           "created_at",
-          "updated_at"
+          "updated_at",
+          "effective_started_at",
+          "effective_started_at_edited",
+          "effective_ended_at",
+          "effective_ended_at_edited"
         ],
         "title": "AppointmentSession",
         "type": "object"
@@ -580,6 +620,14 @@
         ],
         "title": "CarryForwardAvailableField",
         "type": "object"
+      },
+      "CarryForwardStatus": {
+        "enum": [
+          "ok",
+          "unavailable",
+          "not_applicable"
+        ],
+        "type": "string"
       },
       "ChecklistItemStateResponse": {
         "properties": {
@@ -2239,6 +2287,11 @@
             "title": "Carry Forward Available",
             "type": "array"
           },
+          "carry_forward_status": {
+            "$ref": "#/components/schemas/CarryForwardStatus",
+            "default": "not_applicable",
+            "description": "Whether carry_forward_available reflects the EHR: ok (fetched), unavailable (EHR-linked note but the carry-forward could not be fetched), or not_applicable (no EHR writeback for this note)."
+          },
           "clinician_name": {
             "anyOf": [
               {
@@ -2642,6 +2695,42 @@
             "title": "Created At",
             "type": "string"
           },
+          "effective_ended_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The visit end used for the EHR note's end time and total time: the clinician's edit when one was saved, else `ended_at`.",
+            "title": "Effective Ended At"
+          },
+          "effective_ended_at_edited": {
+            "description": "Whether `effective_ended_at` is a clinician edit rather than `ended_at`.",
+            "title": "Effective Ended At Edited",
+            "type": "boolean"
+          },
+          "effective_started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The visit start used for the EHR note's start time, date of service, total time and appointment start: the clinician's edit when one was saved, else `started_at`.",
+            "title": "Effective Started At"
+          },
+          "effective_started_at_edited": {
+            "description": "Whether `effective_started_at` is a clinician edit rather than `started_at`.",
+            "title": "Effective Started At Edited",
+            "type": "boolean"
+          },
           "ended_at": {
             "anyOf": [
               {
@@ -2755,7 +2844,11 @@
           "created_at",
           "updated_at",
           "local_timezone",
-          "artifacts"
+          "artifacts",
+          "effective_started_at",
+          "effective_started_at_edited",
+          "effective_ended_at",
+          "effective_ended_at_edited"
         ],
         "title": "SessionResponse",
         "type": "object"
@@ -3189,6 +3282,32 @@
       "UpdateSessionRequest": {
         "description": "Mutable fields for `PATCH /sessions/{id}`. Only fields present in the body are updated.\n\nA session's `mode` is fixed at create — it is deliberately NOT a field here, so PATCH cannot flip a\nsession to zoom (which would mint a bot-less Zoom session that never went through the saga — the\n`5dca2633` failure class). A Zoom session is created via `POST /v1/{workspace_id}/zoom/sessions`.\n`external_appointment_id` is explicitly nullable — sending `null` clears the link — so the route\ndistinguishes \"field omitted\" (leave as-is) from \"field set to null\" via `exclude_unset`.",
         "properties": {
+          "effective_ended_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The visit's actual end (timezone-aware). `null` resets it to the recorded `ended_at`. Only once the session has ended; must be after the (effective) start, not in the future, and at most 12 hours after the start. Rejected once the session is terminal.",
+            "title": "Effective Ended At"
+          },
+          "effective_started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The visit's actual start (timezone-aware). `null` resets it to the recorded `started_at`. Must not be in the future, at or after the session's (effective) end, or more than 12 hours before the session was created. Rejected once the session is terminal.",
+            "title": "Effective Started At"
+          },
           "external_appointment_id": {
             "anyOf": [
               {
@@ -3315,7 +3434,8 @@
           "succeeded",
           "pending",
           "disabled",
-          "not_attempted"
+          "not_attempted",
+          "skipped_unlinked"
         ],
         "type": "string"
       },
@@ -4207,44 +4327,6 @@
   },
   "openapi": "3.1.0",
   "paths": {
-    "/health": {
-      "get": {
-        "operationId": "health-check",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": {
-                    "type": "string"
-                  },
-                  "title": "Response Health-Check",
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "Health"
-      }
-    },
-    "/readiness": {
-      "get": {
-        "operationId": "readiness-check",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "Readiness"
-      }
-    },
     "/v1/{workspace_id}/appointments": {
       "get": {
         "description": "List appointments over a rolling date-anchored window (workspace + provider read-scoped).\n\nPhase 38 ships a deliberate static stub sourced from the superscribe-web seed (see\n`src/appointments.py`); the response contract is stable so the source can later swap to a\ndownstream customer API via a managed External Integration without a wire change. TESTING STOPGAP\n(phase 45a, SUPERSEDED BY PHASE 45): the stub emits a rolling window `[today - back, today +\nforward]` (env-tunable, defaults 14/30 → 360 items max) instead of today-only, so date-pinned\nappointment ids stay in-list across day-rollovers and the phase-41 session join keeps linking a\nsession created on a prior day. Paginated to mirror the sibling `list-sessions` endpoint\n(offset-based `limit` + opaque `continuation_token`); consumers page the full window and bucket\ninto past/today/upcoming client-side.\n\nOptional date-range filter (phase 34): `start_after` (INCLUSIVE) and `start_before` (EXCLUSIVE) are\ntimezone-aware ISO-8601 datetime bounds on the appointment `start` (normalized to UTC; a naive,\ndate-only or malformed bound is a 422), forming the half-open window `[start_after, start_before)`.\nEither may be given alone; both omitted preserves the legacy behavior. The filter is applied\nserver-side over the window BEFORE pagination, so a client that needs only its today+tomorrow slice\nfetches exactly that instead of paging a wide window and filtering client-side. An inverted range or\na span wider than `_MAX_APPOINTMENT_RANGE` returns 400 `invalid_date_range`.\n\nEHR-backed workspaces (ehr-note-writeback phase 03 — the EHR-integrated workspace with its flag on)\nfetch exactly the client's window, so BOTH `start_after` and `start_before` are REQUIRED there\n(omitting either is 400 `invalid_date_range`); the window is never derived server-side.",
@@ -4369,7 +4451,7 @@
         },
         "summary": "List Appointments",
         "tags": [
-          "Scribe sessions"
+          "Appointments"
         ]
       }
     },
@@ -4473,7 +4555,7 @@
         },
         "summary": "Get Appointment",
         "tags": [
-          "Scribe sessions"
+          "Appointments"
         ]
       }
     },
@@ -4517,7 +4599,7 @@
         },
         "summary": "Get Provider Settings",
         "tags": [
-          "Scribe sessions"
+          "Provider settings"
         ]
       },
       "put": {
@@ -4569,7 +4651,7 @@
         },
         "summary": "Update Provider Settings",
         "tags": [
-          "Scribe sessions"
+          "Provider settings"
         ]
       }
     },
@@ -4716,7 +4798,7 @@
         },
         "summary": "List Sessions",
         "tags": [
-          "Scribe sessions"
+          "Sessions"
         ]
       },
       "post": {
@@ -4797,7 +4879,7 @@
         },
         "summary": "Create Session",
         "tags": [
-          "Scribe sessions"
+          "Sessions"
         ]
       }
     },
@@ -4900,11 +4982,11 @@
         },
         "summary": "Get Session",
         "tags": [
-          "Scribe sessions"
+          "Sessions"
         ]
       },
       "patch": {
-        "description": "Patch an owned session's mutable fields (external_appointment_id / metadata).\n\nIdempotent; only fields present in the body are written (sending `external_appointment_id: null`\nclears the link). A session's `mode` is fixed at create and is not a field on UpdateSessionRequest,\nso PATCH cannot flip a session to zoom (that would mint a bot-less Zoom session that never went\nthrough the saga at POST /zoom/sessions — the 5dca2633 failure class). Returns the full refreshed\nsession so callers see accurate artifact availability.",
+        "description": "Patch an owned session's mutable fields.\n\nIdempotent; only fields present in the body are written (sending `external_appointment_id: null`\nclears the link). A session's `mode` is fixed at create and is not a field on UpdateSessionRequest,\nso PATCH cannot flip a session to zoom (that would mint a bot-less Zoom session that never went\nthrough the saga at POST /zoom/sessions — the 5dca2633 failure class). Returns the full refreshed\nsession so callers see accurate artifact availability.\n\n`effective_started_at` / `effective_ended_at` (phase 114) set the clinician-confirmed visit start / end the\nEHR note's times use; omitted leaves one untouched, `null` resets it to the recorded `started_at` /\n`ended_at`. Both are rejected once the session is terminal — a finalized note completes its session in the\nsame transaction, so a submitted note's times are locked. The resulting pair must keep the end strictly\nafter the start (validated together when both are sent, else against the stored counterpart); a start must\nnot be in the future or more than 12 hours before the session was created; an end only once the session has\nended, not in the future, and at most 12 hours after the start. The session row is locked for the check +\nwrite, so an edit cannot race a finalize.",
         "operationId": "update-session",
         "parameters": [
           {
@@ -4979,6 +5061,16 @@
             },
             "description": "No provider-owned resource exists at this URL."
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "The session is terminal (its note was finalized, or it ended cancelled/failed) and no longer accepts a checklist re-seed (`visit_type` change) or an `effective_started_at` / `effective_ended_at` edit (`invalid_session_state`)."
+          },
           "422": {
             "content": {
               "application/json": {
@@ -4987,12 +5079,12 @@
                 }
               }
             },
-            "description": "Request validation failed (`validation_error`); or a PATCH of `visit_type`/`note_template` would leave the session without a supported amd-* template — no resolvable visit_type (`note_template_required`) or an unrecognized/legacy/mismatched pair (`unsupported_note_template`)."
+            "description": "Request validation failed (`validation_error`); a PATCH of `visit_type`/`note_template` would leave the session without a supported amd-* template — no resolvable visit_type (`note_template_required`) or an unrecognized/legacy/mismatched pair (`unsupported_note_template`); or `effective_started_at` / `effective_ended_at` are out of range — end not after start, a time in the future, a start more than 12 hours before the session was created, an end before the session has ended or more than 12 hours after the start (`invalid_effective_start` / `invalid_effective_end`, by offending field)."
           }
         },
         "summary": "Update Session",
         "tags": [
-          "Scribe sessions"
+          "Sessions"
         ]
       }
     },
@@ -5096,7 +5188,7 @@
         },
         "summary": "Get Actions",
         "tags": [
-          "Scribe sessions"
+          "Note & artifacts"
         ]
       },
       "post": {
@@ -5216,7 +5308,7 @@
         },
         "summary": "Generate Actions",
         "tags": [
-          "Scribe sessions"
+          "Note & artifacts"
         ]
       }
     },
@@ -5328,7 +5420,7 @@
         },
         "summary": "Allocate Session",
         "tags": [
-          "Scribe sessions"
+          "Sessions"
         ]
       }
     },
@@ -5435,7 +5527,7 @@
         },
         "summary": "Ask Session",
         "tags": [
-          "Scribe sessions"
+          "Note & artifacts"
         ]
       }
     },
@@ -5529,7 +5621,7 @@
         },
         "summary": "Cancel Session",
         "tags": [
-          "Scribe sessions"
+          "Sessions"
         ]
       }
     },
@@ -5633,7 +5725,7 @@
         },
         "summary": "Get Checklist",
         "tags": [
-          "Scribe sessions"
+          "Note & artifacts"
         ]
       },
       "patch": {
@@ -5735,7 +5827,7 @@
         },
         "summary": "Update Checklist",
         "tags": [
-          "Scribe sessions"
+          "Note & artifacts"
         ]
       }
     },
@@ -5829,7 +5921,7 @@
         },
         "summary": "Auto Check Checklist",
         "tags": [
-          "Scribe sessions"
+          "Note & artifacts"
         ]
       }
     },
@@ -5933,7 +6025,7 @@
         },
         "summary": "Get Codes",
         "tags": [
-          "Scribe sessions"
+          "Note & artifacts"
         ]
       },
       "post": {
@@ -6053,7 +6145,7 @@
         },
         "summary": "Generate Codes",
         "tags": [
-          "Scribe sessions"
+          "Note & artifacts"
         ]
       }
     },
@@ -6157,7 +6249,7 @@
         },
         "summary": "Create Code",
         "tags": [
-          "Scribe sessions"
+          "Note & artifacts"
         ]
       }
     },
@@ -6271,7 +6363,7 @@
         },
         "summary": "Decide Code",
         "tags": [
-          "Scribe sessions"
+          "Note & artifacts"
         ]
       }
     },
@@ -6365,7 +6457,7 @@
         },
         "summary": "End Session",
         "tags": [
-          "Scribe sessions"
+          "Sessions"
         ]
       }
     },
@@ -6470,7 +6562,7 @@
         },
         "summary": "Stream Zoom Session Events",
         "tags": [
-          "Scribe sessions"
+          "Zoom"
         ]
       }
     },
@@ -6573,7 +6665,7 @@
         },
         "summary": "Get Note",
         "tags": [
-          "Scribe sessions"
+          "Note & artifacts"
         ]
       },
       "post": {
@@ -6702,7 +6794,7 @@
         },
         "summary": "Generate Note",
         "tags": [
-          "Scribe sessions"
+          "Note & artifacts"
         ]
       },
       "put": {
@@ -6804,7 +6896,7 @@
         },
         "summary": "Update Note",
         "tags": [
-          "Scribe sessions"
+          "Note & artifacts"
         ]
       }
     },
@@ -6928,7 +7020,7 @@
         },
         "summary": "Finalize Note",
         "tags": [
-          "Scribe sessions"
+          "Note & artifacts"
         ]
       }
     },
@@ -7032,7 +7124,7 @@
         },
         "summary": "Regenerate Note Section",
         "tags": [
-          "Scribe sessions"
+          "Note & artifacts"
         ]
       }
     },
@@ -7135,7 +7227,7 @@
         },
         "summary": "Get Summary",
         "tags": [
-          "Scribe sessions"
+          "Note & artifacts"
         ]
       },
       "post": {
@@ -7254,7 +7346,7 @@
         },
         "summary": "Generate Summary",
         "tags": [
-          "Scribe sessions"
+          "Note & artifacts"
         ]
       }
     },
@@ -7358,7 +7450,7 @@
         },
         "summary": "Mint Attach Ticket",
         "tags": [
-          "Scribe sessions"
+          "Sessions"
         ]
       }
     },
@@ -7461,7 +7553,7 @@
         },
         "summary": "Get Transcript",
         "tags": [
-          "Scribe sessions"
+          "Note & artifacts"
         ]
       }
     },
@@ -7555,7 +7647,7 @@
         },
         "summary": "End Zoom Session",
         "tags": [
-          "Scribe sessions"
+          "Zoom"
         ]
       }
     },
@@ -7659,7 +7751,7 @@
         },
         "summary": "Pause Zoom Bot",
         "tags": [
-          "Scribe sessions"
+          "Zoom"
         ]
       }
     },
@@ -7763,7 +7855,7 @@
         },
         "summary": "Resume Zoom Bot",
         "tags": [
-          "Scribe sessions"
+          "Zoom"
         ]
       }
     },
@@ -7820,7 +7912,7 @@
         },
         "summary": "Delete Zoom Connection",
         "tags": [
-          "Scribe sessions"
+          "Zoom"
         ]
       },
       "get": {
@@ -7882,7 +7974,7 @@
         },
         "summary": "Get Zoom Connection",
         "tags": [
-          "Scribe sessions"
+          "Zoom"
         ]
       }
     },
@@ -7967,13 +8059,13 @@
         },
         "summary": "Start Zoom Oauth",
         "tags": [
-          "Scribe sessions"
+          "Zoom"
         ]
       }
     },
     "/v1/{workspace_id}/zoom/oauth/callback": {
       "get": {
-        "description": "Unauthenticated Zoom redirect target (NO Bearer -- the single-use state is the credential).\n\nValidates + atomically consumes (GETDEL) the state, exchanges the code + PKCE verifier, and stores\nthe encrypted tokens. Every failure -- invalid/expired/replayed state, missing code, failed\nexchange -- 302s to the web settings route with an error flag and renders no JSON to the human.\nOpted out of the provider-JWT dependency simply by omitting `claims: ScribeClaimsParam`.",
+        "description": "Unauthenticated Zoom redirect target (NO Bearer -- the single-use state is the credential).\n\nValidates + atomically consumes (GETDEL) the state, exchanges the code + PKCE verifier, and stores\nthe encrypted tokens. When the flow carries a code-rule-validated web origin, every outcome --\nsuccess, missing code, failed exchange -- 302s the browser back to that web app's settings route\nwith a success/error flag and renders no JSON to the human. A missing/expired/replayed state has\nno record (and therefore no validated origin), so it returns a 400 rather than redirecting the\nbrowser to a dead host. Opted out of the provider-JWT dependency simply by omitting\n`claims: ScribeClaimsParam`.",
         "operationId": "complete-zoom-oauth",
         "parameters": [
           {
@@ -8011,10 +8103,20 @@
         ],
         "responses": {
           "302": {
-            "description": "Redirect to the web settings route with a `zoom_connected=true` flag on success or a `zoom_error=<reason>` flag on an invalid/expired/replayed state or a failed exchange."
+            "description": "Redirect to the web settings route with a `zoom_connected=true` flag on success or a `zoom_error=<reason>` flag on a failed exchange or missing code."
           },
           "307": {
             "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No validated web origin to return to (e.g. an invalid/expired/replayed state)."
           },
           "422": {
             "content": {
@@ -8029,13 +8131,13 @@
         },
         "summary": "Complete Zoom Oauth",
         "tags": [
-          "Scribe sessions"
+          "Zoom"
         ]
       }
     },
     "/v1/{workspace_id}/zoom/sessions": {
       "post": {
-        "description": "Run the whole Zoom capture saga server-side and return `{session, bot_id}` (201).\n\nIn order: validate the meeting link; friendly per-practitioner active-Zoom pre-check; resolve +\ndecrypt the STORED Zoom token (409 `zoom_not_connected` if absent); create the session (born\n`in-progress`, `mode=zoom`, `external_id` idempotency); dispatch the bot via the control plane\nwith the resolved token. On dispatch failure the session is CANCELLED and any straggler bot reaped\n(503 `bot_dispatch_failed`) so nothing is orphaned. A duplicate/idempotent create whose bot is\nalready running recovers that bot instead of dispatching a second one.",
+        "description": "Run the whole Zoom capture saga server-side and return `{session, bot_id}` (201).\n\nIn order: validate the meeting link; friendly per-practitioner active-Zoom pre-check; resolve +\ndecrypt the STORED Zoom token (409 `zoom_not_connected` if absent); create the session (born\n`in-progress`, `mode=zoom`, `external_id` idempotency); dispatch the bot via the control plane\nwith the resolved token. If the control plane reports the stored token expired (`rtms_token_expired`),\nthe saga forces a refresh + one dispatch retry; a token that still fails flags the connection\n`reconnect_required` and surfaces 409 `zoom_reconnect_required` (SCR-161). On any other dispatch\nfailure the session is CANCELLED and any straggler bot reaped (503 `bot_dispatch_failed`, or a\ndistinct 409 for meeting-not-found/-live) so nothing is orphaned; a meeting-not-started 409 instead\nDELETES the never-started session + checklist (no row left behind). A duplicate/idempotent create\nwhose bot is already running recovers that bot instead of dispatching a second one.",
         "operationId": "create-zoom-session",
         "parameters": [
           {
@@ -8108,7 +8210,7 @@
                 }
               }
             },
-            "description": "The practitioner already has an active Zoom session (`active_zoom_session_exists`), the idempotency key was reused with a different fingerprint (`idempotency_key_conflict`), the provider has not connected Zoom (`zoom_not_connected`), Zoom rejected the stored credential and the provider must reconnect (`zoom_reconnect_required`), or the Zoom meeting hasn't started yet — start the meeting, then retry (`zoom_meeting_not_started`)."
+            "description": "The practitioner already has an active Zoom session (`active_zoom_session_exists`), the idempotency key was reused with a different fingerprint (`idempotency_key_conflict`), the provider has not connected Zoom (`zoom_not_connected`), Zoom rejected the stored credential — including an invalid/expired OAuth token that couldn't be refreshed at dispatch — and the provider must reconnect (`zoom_reconnect_required`), the Zoom meeting hasn't started yet — start the meeting, then retry (`zoom_meeting_not_started`), the Zoom meeting does not exist — check the meeting link (`zoom_meeting_not_found`), or the meeting link is not the meeting currently running under the provider's Zoom account or Zoom couldn't start capture for it — start it as the host or use the live meeting's link (`zoom_meeting_not_live`)."
           },
           "422": {
             "content": {
@@ -8133,7 +8235,7 @@
         },
         "summary": "Create Zoom Session",
         "tags": [
-          "Scribe sessions"
+          "Zoom"
         ]
       }
     }

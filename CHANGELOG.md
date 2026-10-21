@@ -19,6 +19,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Clinician-editable session times (Scribe API phase 114): `SessionResponse`
+  and `AppointmentSession` gain `effective_started_at`,
+  `effective_started_at_edited`, `effective_ended_at` and
+  `effective_ended_at_edited` (required on the response types; the resolved
+  visit times the EHR note uses). `UpdateSessionRequest` / `updateSession`
+  accept `effective_started_at` / `effective_ended_at` (timezone-aware
+  ISO-8601; `null` resets to the recorded time). New error codes on
+  `updateSession`: `422 invalid_effective_start` / `invalid_effective_end`
+  (`ValidationError`) and `409 invalid_session_state` once the note is finalized
+  (`ConflictError`). Code that builds `SessionResponse` / `AppointmentSession`
+  literals (fixtures, mocks) must add the four fields.
+- `NoteReadResponse.carry_forward_status` and the exported `CarryForwardStatus`
+  (`'ok' | 'unavailable' | 'not_applicable'`).
+- `WritebackStatus` gains `skipped_unlinked` (writeback enabled, session has no
+  linked EHR appointment). Exhaustive `switch`es / `Record<WritebackStatus, …>`
+  maps need the new case.
+
 - `writeback_status` — a new required `WritebackStatus`
   (`'succeeded' | 'pending' | 'disabled' | 'not_attempted'`) field on
   `FinalizeNoteResponse` (finalize-note) and `NoteReadResponse` (get-note),
@@ -31,6 +48,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   prior EHR notes, newest first, each code once; empty unless the EHR
   carry-forward was fetched. `PriorDiagnosisResponse` is exported as a named
   public type. Additive.
+
+### Removed
+
+- The unauthenticated `/health` and `/readiness` probe paths no longer appear in
+  the generated `paths` / `operations` types (the upstream public spec dropped
+  them). The client never called them.
 
 ## [0.16.0]
 

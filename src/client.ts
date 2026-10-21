@@ -255,8 +255,19 @@ export class ScribeClient {
    * `PATCH /v1/{workspace_id}/sessions/{session_id}` → 200. Requires
    * `scribe:sessions:write` (owner-scoped). Only fields present in `patch` are
    * updated: `external_appointment_id` (nullable — pass `null` to clear the
-   * appointment link), `metadata`, and `mode`. 404 if the session does not exist
-   * or is not owned by the caller.
+   * appointment link), `metadata`, the session-owned note-generation fields, and
+   * the clinician-confirmed visit times `effective_started_at` /
+   * `effective_ended_at` (timezone-aware ISO-8601; `null` resets one to the
+   * recorded `started_at` / `ended_at`). The times drive the EHR note's start/end
+   * time, date of service and total time; the server validates the resulting
+   * pair (end after start, at most 12 h apart, nothing in the future, a start at
+   * most 12 h before the session was created, an end only once the session has
+   * ended) and rejects violations with a {@link ValidationError} (422,
+   * `errorCode: 'invalid_effective_start' | 'invalid_effective_end'`, detail on
+   * the offending field). Once the note is finalized (or the session is
+   * cancelled/failed) a time edit is a {@link ConflictError}
+   * (`409 invalid_session_state`). 404 if the session does not exist or is not
+   * owned by the caller.
    */
   async updateSession(
     sessionId: string,

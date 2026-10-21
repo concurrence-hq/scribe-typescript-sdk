@@ -4,40 +4,6 @@
  */
 
 export interface paths {
-    "/health": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Health */
-        get: operations["health-check"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/readiness": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Readiness */
-        get: operations["readiness-check"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/{workspace_id}/appointments": {
         parameters: {
             query?: never;
@@ -173,13 +139,22 @@ export interface paths {
         head?: never;
         /**
          * Update Session
-         * @description Patch an owned session's mutable fields (external_appointment_id / metadata).
+         * @description Patch an owned session's mutable fields.
          *
          *     Idempotent; only fields present in the body are written (sending `external_appointment_id: null`
          *     clears the link). A session's `mode` is fixed at create and is not a field on UpdateSessionRequest,
          *     so PATCH cannot flip a session to zoom (that would mint a bot-less Zoom session that never went
          *     through the saga at POST /zoom/sessions — the 5dca2633 failure class). Returns the full refreshed
          *     session so callers see accurate artifact availability.
+         *
+         *     `effective_started_at` / `effective_ended_at` (phase 114) set the clinician-confirmed visit start / end the
+         *     EHR note's times use; omitted leaves one untouched, `null` resets it to the recorded `started_at` /
+         *     `ended_at`. Both are rejected once the session is terminal — a finalized note completes its session in the
+         *     same transaction, so a submitted note's times are locked. The resulting pair must keep the end strictly
+         *     after the start (validated together when both are sent, else against the stored counterpart); a start must
+         *     not be in the future or more than 12 hours before the session was created; an end only once the session has
+         *     ended, not in the future, and at most 12 hours after the start. The session row is locked for the check +
+         *     write, so an edit cannot race a finalize.
          */
         patch: operations["update-session"];
         trace?: never;
@@ -776,9 +751,12 @@ export interface paths {
          * @description Unauthenticated Zoom redirect target (NO Bearer -- the single-use state is the credential).
          *
          *     Validates + atomically consumes (GETDEL) the state, exchanges the code + PKCE verifier, and stores
-         *     the encrypted tokens. Every failure -- invalid/expired/replayed state, missing code, failed
-         *     exchange -- 302s to the web settings route with an error flag and renders no JSON to the human.
-         *     Opted out of the provider-JWT dependency simply by omitting `claims: ScribeClaimsParam`.
+         *     the encrypted tokens. When the flow carries a code-rule-validated web origin, every outcome --
+         *     success, missing code, failed exchange -- 302s the browser back to that web app's settings route
+         *     with a success/error flag and renders no JSON to the human. A missing/expired/replayed state has
+         *     no record (and therefore no validated origin), so it returns a 400 rather than redirecting the
+         *     browser to a dead host. Opted out of the provider-JWT dependency simply by omitting
+         *     `claims: ScribeClaimsParam`.
          */
         get: operations["complete-zoom-oauth"];
         put?: never;
@@ -805,9 +783,13 @@ export interface paths {
          *     In order: validate the meeting link; friendly per-practitioner active-Zoom pre-check; resolve +
          *     decrypt the STORED Zoom token (409 `zoom_not_connected` if absent); create the session (born
          *     `in-progress`, `mode=zoom`, `external_id` idempotency); dispatch the bot via the control plane
-         *     with the resolved token. On dispatch failure the session is CANCELLED and any straggler bot reaped
-         *     (503 `bot_dispatch_failed`) so nothing is orphaned. A duplicate/idempotent create whose bot is
-         *     already running recovers that bot instead of dispatching a second one.
+         *     with the resolved token. If the control plane reports the stored token expired (`rtms_token_expired`),
+         *     the saga forces a refresh + one dispatch retry; a token that still fails flags the connection
+         *     `reconnect_required` and surfaces 409 `zoom_reconnect_required` (SCR-161). On any other dispatch
+         *     failure the session is CANCELLED and any straggler bot reaped (503 `bot_dispatch_failed`, or a
+         *     distinct 409 for meeting-not-found/-live) so nothing is orphaned; a meeting-not-started 409 instead
+         *     DELETES the never-started session + checklist (no row left behind). A duplicate/idempotent create
+         *     whose bot is already running recovers that bot instead of dispatching a second one.
          */
         post: operations["create-zoom-session"];
         delete?: never;
@@ -924,6 +906,26 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /**
+             * Effective Ended At
+             * @description The clinician's edited visit end when one was saved, else `ended_at`.
+             */
+            effective_ended_at: string | null;
+            /**
+             * Effective Ended At Edited
+             * @description Whether `effective_ended_at` is a clinician edit rather than `ended_at`.
+             */
+            effective_ended_at_edited: boolean;
+            /**
+             * Effective Started At
+             * @description The clinician's edited visit start when one was saved, else `started_at`.
+             */
+            effective_started_at: string | null;
+            /**
+             * Effective Started At Edited
+             * @description Whether `effective_started_at` is a clinician edit rather than `started_at`.
+             */
+            effective_started_at_edited: boolean;
             /** Ended At */
             ended_at: string | null;
             /** External Appointment Id */
@@ -1045,6 +1047,8 @@ export interface components {
             /** Value */
             value?: string | null;
         };
+        /** @enum {string} */
+        CarryForwardStatus: "ok" | "unavailable" | "not_applicable";
         /** ChecklistItemStateResponse */
         ChecklistItemStateResponse: {
             /** Category */
@@ -1413,6 +1417,11 @@ export interface components {
             body?: string | null;
             /** Carry Forward Available */
             carry_forward_available?: components["schemas"]["CarryForwardAvailableField"][];
+            /**
+             * @description Whether carry_forward_available reflects the EHR: ok (fetched), unavailable (EHR-linked note but the carry-forward could not be fetched), or not_applicable (no EHR writeback for this note).
+             * @default not_applicable
+             */
+            carry_forward_status: components["schemas"]["CarryForwardStatus"];
             /** Clinician Name */
             clinician_name?: string | null;
             error?: components["schemas"]["ErrorDetail"] | null;
@@ -1570,6 +1579,26 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /**
+             * Effective Ended At
+             * @description The visit end used for the EHR note's end time and total time: the clinician's edit when one was saved, else `ended_at`.
+             */
+            effective_ended_at: string | null;
+            /**
+             * Effective Ended At Edited
+             * @description Whether `effective_ended_at` is a clinician edit rather than `ended_at`.
+             */
+            effective_ended_at_edited: boolean;
+            /**
+             * Effective Started At
+             * @description The visit start used for the EHR note's start time, date of service, total time and appointment start: the clinician's edit when one was saved, else `started_at`.
+             */
+            effective_started_at: string | null;
+            /**
+             * Effective Started At Edited
+             * @description Whether `effective_started_at` is a clinician edit rather than `started_at`.
+             */
+            effective_started_at_edited: boolean;
             /** Ended At */
             ended_at: string | null;
             /** External Appointment Id */
@@ -1795,6 +1824,16 @@ export interface components {
          *     distinguishes "field omitted" (leave as-is) from "field set to null" via `exclude_unset`.
          */
         UpdateSessionRequest: {
+            /**
+             * Effective Ended At
+             * @description The visit's actual end (timezone-aware). `null` resets it to the recorded `ended_at`. Only once the session has ended; must be after the (effective) start, not in the future, and at most 12 hours after the start. Rejected once the session is terminal.
+             */
+            effective_ended_at?: string | null;
+            /**
+             * Effective Started At
+             * @description The visit's actual start (timezone-aware). `null` resets it to the recorded `started_at`. Must not be in the future, at or after the session's (effective) end, or more than 12 hours before the session was created. Rejected once the session is terminal.
+             */
+            effective_started_at?: string | null;
             /** External Appointment Id */
             external_appointment_id?: string | null;
             /** First Name */
@@ -1824,7 +1863,7 @@ export interface components {
         /** @enum {string} */
         VisitType: "psych-intake" | "psych-follow-up" | "therapy-intake" | "therapy-follow-up";
         /** @enum {string} */
-        WritebackStatus: "succeeded" | "pending" | "disabled" | "not_attempted";
+        WritebackStatus: "succeeded" | "pending" | "disabled" | "not_attempted" | "skipped_unlinked";
         /**
          * ZoomAuthorizeResponse
          * @description Response of `POST /zoom/oauth/authorize`.
@@ -1979,48 +2018,6 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    "health-check": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: string;
-                    };
-                };
-            };
-        };
-    };
-    "readiness-check": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": unknown;
-                };
-            };
-        };
-    };
     "list-appointments": {
         parameters: {
             query?: {
@@ -2499,7 +2496,16 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description Request validation failed (`validation_error`); or a PATCH of `visit_type`/`note_template` would leave the session without a supported amd-* template — no resolvable visit_type (`note_template_required`) or an unrecognized/legacy/mismatched pair (`unsupported_note_template`). */
+            /** @description The session is terminal (its note was finalized, or it ended cancelled/failed) and no longer accepts a checklist re-seed (`visit_type` change) or an `effective_started_at` / `effective_ended_at` edit (`invalid_session_state`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request validation failed (`validation_error`); a PATCH of `visit_type`/`note_template` would leave the session without a supported amd-* template — no resolvable visit_type (`note_template_required`) or an unrecognized/legacy/mismatched pair (`unsupported_note_template`); or `effective_started_at` / `effective_ended_at` are out of range — end not after start, a time in the future, a start more than 12 hours before the session was created, an end before the session has ended or more than 12 hours after the start (`invalid_effective_start` / `invalid_effective_end`, by offending field). */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -4658,7 +4664,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Redirect to the web settings route with a `zoom_connected=true` flag on success or a `zoom_error=<reason>` flag on an invalid/expired/replayed state or a failed exchange. */
+            /** @description Redirect to the web settings route with a `zoom_connected=true` flag on success or a `zoom_error=<reason>` flag on a failed exchange or missing code. */
             302: {
                 headers: {
                     [name: string]: unknown;
@@ -4671,6 +4677,15 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description No validated web origin to return to (e.g. an invalid/expired/replayed state). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
             };
             /** @description Validation Error */
             422: {
@@ -4734,7 +4749,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The practitioner already has an active Zoom session (`active_zoom_session_exists`), the idempotency key was reused with a different fingerprint (`idempotency_key_conflict`), the provider has not connected Zoom (`zoom_not_connected`), Zoom rejected the stored credential and the provider must reconnect (`zoom_reconnect_required`), or the Zoom meeting hasn't started yet — start the meeting, then retry (`zoom_meeting_not_started`). */
+            /** @description The practitioner already has an active Zoom session (`active_zoom_session_exists`), the idempotency key was reused with a different fingerprint (`idempotency_key_conflict`), the provider has not connected Zoom (`zoom_not_connected`), Zoom rejected the stored credential — including an invalid/expired OAuth token that couldn't be refreshed at dispatch — and the provider must reconnect (`zoom_reconnect_required`), the Zoom meeting hasn't started yet — start the meeting, then retry (`zoom_meeting_not_started`), the Zoom meeting does not exist — check the meeting link (`zoom_meeting_not_found`), or the meeting link is not the meeting currently running under the provider's Zoom account or Zoom couldn't start capture for it — start it as the host or use the live meeting's link (`zoom_meeting_not_live`). */
             409: {
                 headers: {
                     [name: string]: unknown;
