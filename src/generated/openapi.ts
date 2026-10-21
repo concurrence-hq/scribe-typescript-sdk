@@ -1445,6 +1445,11 @@ export interface components {
             /** Version */
             version?: number | null;
             writeback_status: components["schemas"]["WritebackStatus"];
+            /**
+             * Prior Diagnoses
+             * @description Diagnoses on the patient's signed prior EHR notes, newest first, each code once — offered in the diagnosis picker. Empty unless carry_forward_status is ok.
+             */
+            prior_diagnoses?: components["schemas"]["PriorDiagnosisResponse"][];
         };
         /** NoteResponse */
         NoteResponse: {
@@ -1485,6 +1490,32 @@ export interface components {
         NoteTemplate: "amd-psych-intake" | "amd-psych-intake-ip" | "amd-psych-progress" | "amd-psych-progress-ip" | "amd-therapy-intake" | "amd-therapy-intake-ip" | "amd-therapy-progress" | "amd-therapy-progress-ip";
         /** @enum {string} */
         NoteValueSource: "scribe" | "clinician";
+        /**
+         * PriorDiagnosisResponse
+         * @description One diagnosis from the patient's signed prior EHR notes (ehr-note-writeback phase 121), offered in the
+         *     note's diagnosis picker so the clinician can add it with one click.
+         *
+         *     PHI: `code` and `description` are patient diagnoses — returned to the authenticated clinician like the
+         *     note body, never logged.
+         */
+        PriorDiagnosisResponse: {
+            /**
+             * Code
+             * @description ICD-10-CM code from the prior note, trimmed and upper-cased.
+             */
+            code: string;
+            /**
+             * Description
+             * @description Diagnosis description as written on the prior note; empty when only the code was entered.
+             * @default
+             */
+            description: string;
+            /**
+             * Last Signed At
+             * @description When the newest signed prior note that used this code was signed (UTC).
+             */
+            last_signed_at?: string | null;
+        };
         /**
          * ProviderSettingsResponse
          * @description Response of `GET`/`PUT /provider/settings` (V366).

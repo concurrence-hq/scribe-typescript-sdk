@@ -43,6 +43,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   exported as a named public type. It is **not** present on the shared
   `NoteResponse` / generate-note response. Additive to the read/finalize shapes.
 - `SessionResponse.local_timezone` — the IANA zone persisted on the session.
+- `NoteReadResponse.prior_diagnoses` — optional list of `PriorDiagnosisResponse`
+  (`code`, `description`, `last_signed_at`): diagnoses on the patient's signed
+  prior EHR notes, newest first, each code once; empty unless the EHR
+  carry-forward was fetched. `PriorDiagnosisResponse` is exported as a named
+  public type. Additive.
 
 ### Removed
 
