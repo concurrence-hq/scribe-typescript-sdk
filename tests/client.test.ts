@@ -678,24 +678,30 @@ describe('updateSession', () => {
     expect(result.effective_ended_at).toBe('2026-09-28T16:00:00Z')
   })
 
-  it.each(['invalid_effective_start', 'invalid_effective_end'])(
-    'maps a 422 %s rejection to ValidationError carrying the errorCode',
-    async code => {
+  it.each([
+    [
+      'invalid_effective_start',
+      'effective_started_at',
+      { effective_started_at: '2026-09-28T17:00:00Z' },
+    ],
+    ['invalid_effective_end', 'effective_ended_at', { effective_ended_at: '2026-09-28T14:00:00Z' }],
+  ] as const)(
+    'maps a 422 %s rejection to ValidationError carrying the errorCode and field details',
+    async (code, field, patch) => {
+      const details = [{ field, message: 'The session start must be before the session end' }]
       const { fetch } = mockFetch([
         {
           status: 422,
-          body: {
-            code,
-            detail: 'The session start must be before the session end',
-            details: [{ field: 'effective_ended_at', message: 'synthetic' }],
-          },
+          body: { code, detail: 'The session start must be before the session end', details },
         },
       ])
       const err = await client(fetch)
-        .updateSession('sess-1', { effective_ended_at: '2026-09-28T14:00:00Z' })
+        .updateSession('sess-1', patch)
         .catch(e => e)
       expect(err).toBeInstanceOf(ValidationError)
       expect(err.errorCode).toBe(code)
+      // The field-level detail survives so a form can highlight the offending input.
+      expect((err.context?.body as { details?: unknown }).details).toEqual(details)
     }
   )
 
@@ -703,9 +709,11 @@ describe('updateSession', () => {
     const { fetch } = mockFetch([
       { status: 409, body: { code: 'invalid_session_state', detail: 'terminal' } },
     ])
-    await expect(
-      client(fetch).updateSession('sess-1', { effective_started_at: null })
-    ).rejects.toBeInstanceOf(ConflictError)
+    const err = await client(fetch)
+      .updateSession('sess-1', { effective_started_at: null })
+      .catch(e => e)
+    expect(err).toBeInstanceOf(ConflictError)
+    expect(err.errorCode).toBe('invalid_session_state')
   })
 
   it('url-encodes the session id', async () => {

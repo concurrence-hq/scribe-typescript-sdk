@@ -266,6 +266,9 @@ export type NoteGenerationReadStatus = Schemas['NoteGenerationReadStatus']
  * - `pending` — writeback is in progress / enqueued.
  * - `disabled` — writeback is not enabled for this session/workspace.
  * - `not_attempted` — no writeback has been attempted (e.g. note not finalized).
+ * - `skipped_unlinked` — writeback is enabled but the session has no linked EHR
+ *   appointment (an ad-hoc / walk-in session), so the finalized note was signed
+ *   locally and the writeback was intentionally skipped. Terminal, not an error.
  */
 export type WritebackStatus = Schemas['WritebackStatus']
 
