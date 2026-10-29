@@ -226,9 +226,11 @@ export class ScribeClient {
     }
     // Status filter: serialized as a repeated param (`status=a&status=b`), which
     // the server ORs together. A null/absent/empty filter is omitted entirely
-    // (no filter — every non-cancelled status is listed).
+    // (no filter — every non-cancelled status is listed). Duplicates are
+    // dropped (first-seen order kept) so a repeated value can't push the
+    // request over the server's 4-value cap and 422.
     if (params.status != null && params.status.length > 0) {
-      query.status = params.status
+      query.status = [...new Set(params.status)]
     }
     return this.http.request<SessionListResponse>({
       method: 'GET',

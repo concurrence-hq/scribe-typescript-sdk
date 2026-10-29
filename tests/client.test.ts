@@ -315,6 +315,15 @@ describe('listSessions', () => {
     )
   })
 
+  it('accepts a readonly (as const) status tuple and drops duplicates', async () => {
+    const { fetch, calls } = mockFetch([{ status: 200, body: { items: [], has_more: false } }])
+    const REVIEW = ['in-review', 'completed', 'in-review', 'failed', 'completed'] as const
+    await client(fetch).listSessions({ status: REVIEW })
+    expect(calls[0]!.url).toBe(
+      `${BASE}/v1/${WS}/sessions?status=in-review&status=completed&status=failed`
+    )
+  })
+
   it('omits a null or empty status filter', async () => {
     const { fetch, calls } = mockFetch([
       { status: 200, body: { items: [], has_more: false } },

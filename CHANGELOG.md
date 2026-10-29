@@ -23,8 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   gains an optional `status` array (`in-progress` | `in-review` | `completed` |
   `failed`), serialized as a repeated query param
   (`?status=in-review&status=completed`). Omitting it (or passing an empty
-  array) keeps today's unfiltered request. The HTTP query builder now
-  serializes array values as repeated params.
+  array) keeps today's unfiltered request. Accepts readonly (`as const`)
+  arrays and drops duplicate values; new `ListSessionsStatusFilter` type. The
+  HTTP query builder now serializes array values as repeated params.
+  **Requires a Scribe API with phase 156 deployed** — an older server ignores
+  the unknown `status` param and returns an unfiltered list.
 - Clinician-editable session times (Scribe API phase 114): `SessionResponse`
   and `AppointmentSession` gain `effective_started_at`,
   `effective_started_at_edited`, `effective_ended_at` and

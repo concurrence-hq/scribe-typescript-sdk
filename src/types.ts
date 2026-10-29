@@ -116,8 +116,21 @@ export type ErrorResponseBody = Schemas['ErrorResponse']
  */
 export type ListSessionsParams = Omit<
   NonNullable<operations['list-sessions']['parameters']['query']>,
-  'continuation_token'
-> & { continuation_token?: string | number | null }
+  'continuation_token' | 'status'
+> & {
+  continuation_token?: string | number | null
+  /**
+   * Only return sessions in these statuses (ORed server-side). Widened to a
+   * readonly array so `as const` tuples are accepted; duplicates are removed
+   * before sending (the server caps the param at 4 values).
+   */
+  status?: readonly ListSessionsStatusFilter[] | null
+}
+
+/** One value of the list-sessions `status` filter (cancelled is never listed). */
+export type ListSessionsStatusFilter = NonNullable<
+  NonNullable<operations['list-sessions']['parameters']['query']>['status']
+>[number]
 
 /**
  * Response from list-sessions (`SessionListResponse`).
