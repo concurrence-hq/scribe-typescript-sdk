@@ -103,7 +103,9 @@ export type ErrorResponseBody = Schemas['ErrorResponse']
  * Query params for {@link ScribeClient.listSessions} — `limit` (page size),
  * `continuation_token` (opaque cursor from a prior page's response), and the
  * optional half-open created-at window `created_after` (inclusive) /
- * `created_before` (exclusive) ISO date-time bounds. All optional; derived from
+ * `created_before` (exclusive) ISO date-time bounds, plus an optional `status`
+ * filter (array of `in-progress` | `in-review` | `completed` | `failed`, sent as
+ * a repeated query param). All optional; derived from
  * the generated `list-sessions` operation. The
  * generated `continuation_token` is `unknown` (the spec gives it no type), so
  * it is narrowed to `string | number | null` here — staging returns the cursor
