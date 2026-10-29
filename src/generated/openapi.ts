@@ -1428,6 +1428,11 @@ export interface components {
             /** Generated At */
             generated_at?: string | null;
             generation_status: components["schemas"]["NoteGenerationReadStatus"];
+            /**
+             * Prior Diagnoses
+             * @description Diagnoses on the patient's signed prior EHR notes, newest first, each code once — offered in the diagnosis picker. Empty unless carry_forward_status is ok.
+             */
+            prior_diagnoses?: components["schemas"]["PriorDiagnosisResponse"][];
             /** Session Id */
             session_id?: string | null;
             /** Signed At */
@@ -1445,11 +1450,6 @@ export interface components {
             /** Version */
             version?: number | null;
             writeback_status: components["schemas"]["WritebackStatus"];
-            /**
-             * Prior Diagnoses
-             * @description Diagnoses on the patient's signed prior EHR notes, newest first, each code once — offered in the diagnosis picker. Empty unless carry_forward_status is ok.
-             */
-            prior_diagnoses?: components["schemas"]["PriorDiagnosisResponse"][];
         };
         /** NoteResponse */
         NoteResponse: {
@@ -2231,6 +2231,8 @@ export interface operations {
                 continuation_token?: unknown;
                 created_after?: string | null;
                 created_before?: string | null;
+                /** @description Only return sessions in these statuses. Repeat the parameter to match several, e.g. `?status=in-review&status=completed`. Cancelled sessions are never listed. */
+                status?: ("in-progress" | "in-review" | "completed" | "failed")[] | null;
             };
             header?: never;
             path: {

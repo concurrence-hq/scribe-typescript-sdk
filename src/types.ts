@@ -103,7 +103,9 @@ export type ErrorResponseBody = Schemas['ErrorResponse']
  * Query params for {@link ScribeClient.listSessions} — `limit` (page size),
  * `continuation_token` (opaque cursor from a prior page's response), and the
  * optional half-open created-at window `created_after` (inclusive) /
- * `created_before` (exclusive) ISO date-time bounds. All optional; derived from
+ * `created_before` (exclusive) ISO date-time bounds, plus an optional `status`
+ * filter (array of `in-progress` | `in-review` | `completed` | `failed`, sent as
+ * a repeated query param). All optional; derived from
  * the generated `list-sessions` operation. The
  * generated `continuation_token` is `unknown` (the spec gives it no type), so
  * it is narrowed to `string | number | null` here — staging returns the cursor
@@ -114,8 +116,21 @@ export type ErrorResponseBody = Schemas['ErrorResponse']
  */
 export type ListSessionsParams = Omit<
   NonNullable<operations['list-sessions']['parameters']['query']>,
-  'continuation_token'
-> & { continuation_token?: string | number | null }
+  'continuation_token' | 'status'
+> & {
+  continuation_token?: string | number | null
+  /**
+   * Only return sessions in these statuses (ORed server-side). Widened to a
+   * readonly array so `as const` tuples are accepted; duplicates are removed
+   * before sending (the server caps the param at 4 values).
+   */
+  status?: readonly ListSessionsStatusFilter[] | null
+}
+
+/** One value of the list-sessions `status` filter (cancelled is never listed). */
+export type ListSessionsStatusFilter = NonNullable<
+  NonNullable<operations['list-sessions']['parameters']['query']>['status']
+>[number]
 
 /**
  * Response from list-sessions (`SessionListResponse`).

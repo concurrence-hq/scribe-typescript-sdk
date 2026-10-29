@@ -19,7 +19,7 @@ Session lifecycle:
 
 - `createSession` — `POST /v1/{workspace_id}/sessions`
 - `allocate` — `POST /v1/{workspace_id}/sessions/{session_id}/allocate` → `{ host, expires_at }`
-- `listSessions` — `GET /v1/{workspace_id}/sessions` (cursor-paginated: `limit`, `continuation_token`)
+- `listSessions` — `GET /v1/{workspace_id}/sessions` (cursor-paginated: `limit`, `continuation_token`; optional `created_after` / `created_before` window and `status` filter, e.g. `{ status: ['in-review'] }`, sent as a repeated `status` param)
 - `getSession` — `GET /v1/{workspace_id}/sessions/{session_id}`
 - `updateSession` — `PATCH /v1/{workspace_id}/sessions/{session_id}` (update supported appointment, metadata, patient-name, and visit-template fields; mode is fixed at creation)
 - `endSession` — `POST /v1/{workspace_id}/sessions/{session_id}/end` (guarded → `in-review`)

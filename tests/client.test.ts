@@ -301,6 +301,41 @@ describe('listSessions', () => {
     expect(calls[0]!.url).toBe(`${BASE}/v1/${WS}/sessions?limit=2`)
   })
 
+  it('serializes a single status filter as ?status=<value>', async () => {
+    const { fetch, calls } = mockFetch([{ status: 200, body: { items: [], has_more: false } }])
+    await client(fetch).listSessions({ status: ['in-review'] })
+    expect(calls[0]!.url).toBe(`${BASE}/v1/${WS}/sessions?status=in-review`)
+  })
+
+  it('repeats the status param for multiple statuses, alongside other params', async () => {
+    const { fetch, calls } = mockFetch([{ status: 200, body: { items: [], has_more: false } }])
+    await client(fetch).listSessions({ limit: 10, status: ['in-review', 'completed'] })
+    expect(calls[0]!.url).toBe(
+      `${BASE}/v1/${WS}/sessions?limit=10&status=in-review&status=completed`
+    )
+  })
+
+  it('accepts a readonly (as const) status tuple and drops duplicates', async () => {
+    const { fetch, calls } = mockFetch([{ status: 200, body: { items: [], has_more: false } }])
+    const REVIEW = ['in-review', 'completed', 'in-review', 'failed', 'completed'] as const
+    await client(fetch).listSessions({ status: REVIEW })
+    expect(calls[0]!.url).toBe(
+      `${BASE}/v1/${WS}/sessions?status=in-review&status=completed&status=failed`
+    )
+  })
+
+  it('omits a null or empty status filter', async () => {
+    const { fetch, calls } = mockFetch([
+      { status: 200, body: { items: [], has_more: false } },
+      { status: 200, body: { items: [], has_more: false } },
+    ])
+    const c = client(fetch)
+    await c.listSessions({ limit: 2, status: null })
+    await c.listSessions({ limit: 2, status: [] })
+    expect(calls[0]!.url).toBe(`${BASE}/v1/${WS}/sessions?limit=2`)
+    expect(calls[1]!.url).toBe(`${BASE}/v1/${WS}/sessions?limit=2`)
+  })
+
   it('maps 403 to PermissionError', async () => {
     const { fetch } = mockFetch([{ status: 403, body: { message: 'wrong workspace' } }])
     await expect(client(fetch).listSessions()).rejects.toBeInstanceOf(PermissionError)

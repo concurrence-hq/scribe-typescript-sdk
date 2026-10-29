@@ -4,6 +4,7 @@ import { streamSessionEvents } from './event-stream'
 import {
   HttpClient,
   type FetchLike,
+  type RequestOptions,
   type ScribeClientConfig as HttpConfig,
   type TokenProvider,
 } from './http'
@@ -194,13 +195,16 @@ export class ScribeClient {
    * Optionally filter by creation time with `created_after` (inclusive) and
    * `created_before` (exclusive) — ISO date-time bounds forming a half-open
    * window `[created_after, created_before)`; either may be given alone.
+   * Optionally filter by `status` (an array of `in-progress` | `in-review` |
+   * `completed` | `failed`), sent as a repeated query param and ORed by the
+   * server; omit it (or pass an empty array) to list every non-cancelled status.
    */
   async listSessions(
     params: ListSessionsParams = {},
     options?: CallOptions
   ): Promise<SessionListResponse> {
     const workspaceId = this.resolveWorkspaceId(options)
-    const query: Record<string, string | number | boolean | undefined> = {}
+    const query: NonNullable<RequestOptions['query']> = {}
     if (params.limit !== undefined) {
       query.limit = params.limit
     }
@@ -219,6 +223,14 @@ export class ScribeClient {
     }
     if (params.created_before != null) {
       query.created_before = params.created_before
+    }
+    // Status filter: serialized as a repeated param (`status=a&status=b`), which
+    // the server ORs together. A null/absent/empty filter is omitted entirely
+    // (no filter — every non-cancelled status is listed). Duplicates are
+    // dropped (first-seen order kept) so a repeated value can't push the
+    // request over the server's 4-value cap and 422.
+    if (params.status != null && params.status.length > 0) {
+      query.status = [...new Set(params.status)]
     }
     return this.http.request<SessionListResponse>({
       method: 'GET',

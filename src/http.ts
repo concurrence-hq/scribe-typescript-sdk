@@ -28,7 +28,12 @@ export interface ScribeClientConfig {
 export interface RequestOptions {
   method: string
   path: string
-  query?: Record<string, string | number | boolean | undefined>
+  /**
+   * Query parameters. `undefined` values are skipped; an array value is
+   * serialized as a repeated parameter (`key=a&key=b`), and an empty array
+   * emits nothing.
+   */
+  query?: Record<string, string | number | boolean | readonly string[] | undefined>
   body?: unknown
   /** Caller abort signal for cancellation. Combined with `timeoutMs` if both set. */
   signal?: AbortSignal
@@ -180,7 +185,14 @@ export class HttpClient {
     if (query) {
       const params = new URLSearchParams()
       for (const [key, value] of Object.entries(query)) {
-        if (value !== undefined) {
+        if (value === undefined) {
+          continue
+        }
+        if (Array.isArray(value)) {
+          for (const item of value) {
+            params.append(key, String(item))
+          }
+        } else {
           params.append(key, String(value))
         }
       }

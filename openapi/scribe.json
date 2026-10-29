@@ -2328,6 +2328,14 @@
           "generation_status": {
             "$ref": "#/components/schemas/NoteGenerationReadStatus"
           },
+          "prior_diagnoses": {
+            "description": "Diagnoses on the patient's signed prior EHR notes, newest first, each code once — offered in the diagnosis picker. Empty unless carry_forward_status is ok.",
+            "items": {
+              "$ref": "#/components/schemas/PriorDiagnosisResponse"
+            },
+            "title": "Prior Diagnoses",
+            "type": "array"
+          },
           "session_id": {
             "anyOf": [
               {
@@ -2418,14 +2426,6 @@
           },
           "writeback_status": {
             "$ref": "#/components/schemas/WritebackStatus"
-          },
-          "prior_diagnoses": {
-            "description": "Diagnoses on the patient's signed prior EHR notes, newest first, each code once — offered in the diagnosis picker. Empty unless carry_forward_status is ok.",
-            "items": {
-              "$ref": "#/components/schemas/PriorDiagnosisResponse"
-            },
-            "title": "Prior Diagnoses",
-            "type": "array"
           }
         },
         "required": [
@@ -4721,6 +4721,34 @@
                 }
               ],
               "title": "Created Before"
+            }
+          },
+          {
+            "description": "Only return sessions in these statuses. Repeat the parameter to match several, e.g. `?status=in-review&status=completed`. Cancelled sessions are never listed.",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "enum": [
+                      "in-progress",
+                      "in-review",
+                      "completed",
+                      "failed"
+                    ],
+                    "type": "string"
+                  },
+                  "maxItems": 4,
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only return sessions in these statuses. Repeat the parameter to match several, e.g. `?status=in-review&status=completed`. Cancelled sessions are never listed.",
+              "title": "Status"
             }
           }
         ],
